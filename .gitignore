@@ -1,0 +1,50 @@
+# Bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.so
+
+# Virtual env
+.venv/
+venv/
+env/
+CDSS/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build and deploy
+dist/
+build/
+*.egg-info/
+*.egg
+lambda.zip
+infrastructure/lambda.zip
+
+# Terraform
+infrastructure/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# Test and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
