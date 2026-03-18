@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CDSS Gateway Configuration",
+  "description": "Schema for gateway-config.json used to connect frontend and backend in AWS",
+  "type": "object",
+  "required": ["apiGateway", "cognito"],
+  "properties": {
+    "version": { "type": "string" },
+    "description": { "type": "string" },
+    "aws": {
+      "type": "object",
+      "properties": {
+        "region": { "type": "string", "default": "ap-south-1" },
+        "environment": { "type": "string", "enum": ["dev", "staging", "prod"] }
+      }
+    },
+    "apiGateway": {
+      "type": "object",
+      "required": ["baseUrl", "cdssApiBase", "healthUrl"],
+      "properties": {
+        "baseUrl": { "type": "string", "format": "uri" },
+        "cdssApiBase": { "type": "string", "format": "uri" },
+        "healthUrl": { "type": "string", "format": "uri" },
+        "routes": {
+          "type": "object",
+          "properties": {
+            "health": { "type": "string" },
+            "api": { "type": "string" },
+            "dashboard": { "type": "string" },
+            "agent": { "type": "string" }
+          }
+        }
+      }
+    },
+    "websocket": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "format": "uri" },
+        "enabled": { "type": "boolean" },
+        "connectAuthQueryParam": { "type": "string" }
+      }
+    },
+    "cognito": {
+      "type": "object",
+      "required": ["region", "userPoolId"],
+      "properties": {
+        "region": { "type": "string" },
+        "userPoolId": { "type": "string" },
+        "staffClientId": { "type": "string" },
+        "patientClientId": { "type": "string" }
+      }
+    },
+    "cloudFront": {
+      "type": "object",
+      "properties": {
+        "staffAppUrl": { "type": "string", "format": "uri" },
+        "patientPortalUrl": { "type": "string", "format": "uri" }
+      }
+    },
+    "frontend": {
+      "type": "object",
+      "properties": {
+        "useMock": { "type": "boolean" },
+        "doctorDashboard": { "type": "object" },
+        "patientDashboard": { "type": "object" }
+      }
+    }
+  }
+}

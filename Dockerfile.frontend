@@ -1,0 +1,39 @@
+# CDSS Frontend – Production container (React + Nginx)
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Install deps
+COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/apps/doctor-dashboard/package.json ./apps/doctor-dashboard/
+RUN cd apps/doctor-dashboard && npm install --legacy-peer-deps
+
+# Copy source
+COPY frontend/apps/doctor-dashboard/ ./apps/doctor-dashboard/
+
+# Build args for Vite env injection at build time
+# Default to the deployed HTTPS API Gateway URL so builds used behind CloudFront
+# do not accidentally call an insecure localhost endpoint.
+ARG VITE_API_URL=https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev
+ARG VITE_USE_MOCK=false
+ARG VITE_COGNITO_USER_POOL_ID=
+ARG VITE_COGNITO_CLIENT_ID=
+ARG VITE_COGNITO_REGION=ap-south-1
+
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_USE_MOCK=$VITE_USE_MOCK
+ENV VITE_COGNITO_USER_POOL_ID=$VITE_COGNITO_USER_POOL_ID
+ENV VITE_COGNITO_CLIENT_ID=$VITE_COGNITO_CLIENT_ID
+ENV VITE_COGNITO_REGION=$VITE_COGNITO_REGION
+
+RUN cd apps/doctor-dashboard && npm run build
+
+# Serve with Nginx
+FROM nginx:alpine
+COPY --from=build /app/apps/doctor-dashboard/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget -q --spider http://localhost/ || exit 1

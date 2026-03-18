@@ -1,0 +1,64 @@
+---
+description: CDSS clinical assessment schemas, risk flags, safety, audit
+globs: ["**/cdss/**/*.py", "src/cdss/**/*.py"]
+alwaysApply: false
+---
+
+# CDSS Clinical Assessment – Schemas, Standards, Safety
+
+This rule covers **patient and surgery assessments** produced by CDSS agents (Patient Agent, Surgery Agent, Patient Engagement Agent).
+
+## Strict Schemas (Required)
+
+All AI‑generated clinical assessments must use strict, versioned schemas and be validated with Pydantic (or equivalent) **before** use.
+
+### Patient Risk / Priority
+
+- Represent overall **clinical priority** using an enum aligned with hospital policy:
+  - `critical`, `high`, `medium`, `low`
+- Represent **confidence** as a float `0.0–1.0` (documented clearly in the model).
+- Risk objects should include:
+  - `priority: Literal["critical","high","medium","low"]`
+  - `confidence: float  # 0.0–1.0`
+  - `risk_factors: list[str]`
+  - `recommendations: list[str]`
+
+### Surgery Readiness
+
+Surgery Agent and Patient Agent outputs for readiness must include:
+
+- `pre_op_status: Literal["pending","in_progress","cleared","on_hold"]`
+- `risk_factors: list[str]` (plain language + coded where available)
+- `checklist_flags: list[str]` (e.g., “labs pending”, “NPO not confirmed”)
+- `requires_senior_review: bool`
+
+## Safety Rules
+
+- If confidence < 0.85 or required data is missing → set `priority` to at least `high` **and** `requires_senior_review = True`.
+- Always include clear **safety disclaimers** in any AI‑generated summary or recommendation shown to patients.
+- Flag cases for manual review when:
+  - Multiple organ systems involved
+  - Conflicting or inconsistent data
+  - High‑risk surgeries or polypharmacy
+
+## Trace Review and Medical Audit
+
+- Enable model invocation logging and trace events for all assessment‑producing agents.
+- Traces must capture: prompts, KB references, tool calls, raw model output, validated structured result.
+- Keep links from traces to `Patient_ID`, `Doctor_ID`, and surgery IDs for audit.
+
+## Structured Output Pattern
+
+Use tool/schema pattern like:
+
+```python
+class ClinicalAssessment(BaseModel):
+    patient_id: str
+    priority: Literal["critical", "high", "medium", "low"]
+    confidence: float
+    risk_factors: list[str]
+    recommendations: list[str]
+    requires_senior_review: bool
+```
+
+Validate with `ClinicalAssessment.model_validate(tool_input)` before persisting or acting on the data.

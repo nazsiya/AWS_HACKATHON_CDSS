@@ -1,0 +1,55 @@
+{
+    "KnowledgeBase": {
+        "Name": "cdss-clinical-protocols",
+        "Description": "Contains medical protocols, clinical guidelines, and hospital-specific procedural documents.",
+        "StorageConfiguration": {
+            "Type": "OPENSEARCH_SERVERLESS",
+            "OpensearchServerlessConfiguration": {
+                "CollectionArn": "arn:aws:aoss:ap-south-1:123456789012:collection/cdss-vectors",
+                "VectorIndexName": "clinical-protocols",
+                "FieldMapping": {
+                    "VectorField": "vector_field",
+                    "TextField": "text_field",
+                    "MetadataField": "metadata_field"
+                }
+            }
+        }
+    },
+    "OpenSearchIndex": {
+        "Settings": {
+            "index": {
+                "knn": "true",
+                "knn.algo_param.ef_search": "512"
+            }
+        },
+        "Mappings": {
+            "properties": {
+                "vector_field": {
+                    "type": "knn_vector",
+                    "dimension": 1536,
+                    "method": {
+                        "name": "hnsw",
+                        "engine": "nmslib",
+                        "space_type": "l2",
+                        "parameters": {
+                            "ef_construction": 512,
+                            "m": 16
+                        }
+                    }
+                },
+                "text_field": {
+                    "type": "text"
+                },
+                "metadata_field": {
+                    "type": "text"
+                },
+                "patient_id": {
+                    "type": "keyword"
+                },
+                "doc_type": {
+                    "type": "keyword"
+                }
+            }
+        }
+    }
+}

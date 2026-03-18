@@ -1,0 +1,10 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+terraform.tfvars
+tfplan
+*.tfvars
+!terraform.tfvars.example
+secrets.env
+lambda_health.zip

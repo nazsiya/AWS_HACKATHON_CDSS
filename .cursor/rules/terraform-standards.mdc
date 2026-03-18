@@ -1,0 +1,28 @@
+---
+description: Terraform and infrastructure conventions for CDSS
+globs: "**/*.tf"
+alwaysApply: false
+---
+
+# Terraform Standards
+
+## Naming
+- Use `local.name_prefix` for resource naming: `${var.project_name}-${var.environment}`.
+- Consistent tags: Name, Project, Environment.
+
+## Security
+- No secrets in `.tf` files. Use variables and `terraform.tfvars` (gitignored).
+- Enable encryption (S3, RDS, etc.). Block public access on S3.
+- CDSS data stores (RDS, S3, logs containing PHI) must:
+  - Live in approved India regions.
+  - Enable encryption at rest with KMS CMKs.
+  - Restrict cross‑region replication to compliant targets only.
+
+## Structure
+- One resource type per file when practical (s3.tf, rds.tf, etc.).
+- Use `terraform.tfvars.example` as template; never commit real tfvars.
+- Keep `.terraform.lock.hcl` committed for reproducible builds.
+
+## Observability
+- Always enable detailed logs for API Gateway, ALB, and Lambda where they are part of clinical flows.
+- Route logs to centralized, encrypted destinations (CloudWatch Logs, S3) with lifecycle rules that satisfy hospital and regulatory retention requirements.

@@ -1,0 +1,55 @@
+---
+description: AWS Bedrock agents and models for CDSS – action groups, KB, tracing
+globs: ["**/*.py", "**/terraform/**/*.tf"]
+alwaysApply: false
+---
+
+# Bedrock in CDSS – Patterns and Best Practices
+
+## Overview
+
+Use **AWS Bedrock** for foundation models in the CDSS multi‑agent architecture:
+- Conversation intelligence and summaries (Patient Engagement Agent)
+- Clinical reasoning for patient risk and surgery readiness (Patient/Surgery Agents)
+- Natural language interfaces for doctors and patients
+
+Primary model: **Claude Sonnet** (or successor) with tool use and JSON output.
+
+## Agent / Action Group Architecture
+
+- Keep domain separation: one agent (or MCP tool set) per domain – Patient, Surgery, Resource, Scheduling, Engagement.
+- Action groups use **Lambda** for business logic + **Knowledge Base** for RAG (clinical guidelines, hospital SOPs).
+- Tool and action names must match `^[a-zA-Z0-9_-]{1,64}$`; avoid double underscores.
+- Use small, explicit tools: e.g., `compute_surgery_requirements`, `assess_patient_risk`, `summarize_conversation`.
+
+## Patterns for Clinical Safety
+
+- Encode safety policies in tools, not only in prompts:
+  - If model output confidence < 0.85 → escalate flags or require senior review.
+  - Never let model free‑text directly update EMR or hospital systems; always go through validated tools.
+- Use KB/RAG for:
+  - National/international guidelines (surgery checklists, drug interactions)
+  - Hospital‑specific SOPs and consent policies
+
+## Observability and Trace Review
+
+- Enable **model invocation logging** for all CDSS Bedrock usage.
+- Emit trace events for:
+  - Input prompts and tool calls
+  - KB references and sources
+  - Final clinical assessment objects saved to the data layer
+- Set up **medical audit review**: Admin/Dev can review traces per `Patient_ID` / `Doctor_ID`.
+
+## Structured Output
+
+- Prefer **tool use** with strict `input_schema` (type, properties, required).
+- Map tool inputs to Pydantic models, validate, then execute business logic.
+- For assessments and summaries, keep:
+  - A machine‑readable object (risk, readiness, entities)
+  - A human‑readable explanation for doctors and a simplified version for patients.
+
+## Best Practices
+
+- Deploy Bedrock‑related infrastructure via IaC (Terraform/CDK); avoid manual console configuration.
+- Keep only the tools required for a given workflow in the agent; avoid “kitchen sink” agents.
+- Set conservative timeouts and clear error messages for degraded modes (e.g., when Bedrock is unavailable).

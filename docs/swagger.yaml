@@ -1,0 +1,525 @@
+openapi: 3.0.3
+info:
+  title: CDSS API
+  description: Clinical Decision Support System REST API. Doctor/Nurse and Patient modules.
+  version: 1.0.0
+  contact:
+    name: CDSS Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local API
+  - url: https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev
+    description: AWS API Gateway (dev)
+
+tags:
+  - name: Health
+  - name: Dashboard
+  - name: Agent
+  - name: Patients
+  - name: Consultations
+  - name: Medications
+  - name: Surgeries
+  - name: Resources
+  - name: Schedule
+  - name: Reminders
+  - name: Admin
+  - name: Activity
+  - name: AI
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service: { type: string, example: cdss }
+                  status: { type: string, example: ok }
+
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard data (KPIs, tasks)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: doctor_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Dashboard payload
+
+  /agent:
+    post:
+      tags: [Agent]
+      summary: AI/agent chat or recommendations
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+                patient_id: { type: string }
+                context: { type: object }
+      responses:
+        '200':
+          description: Agent reply with intent and safety disclaimer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  intent: { type: string }
+                  agent: { type: string }
+                  data: { type: object }
+                  safety_disclaimer: { type: string }
+
+  /api/v1/patients:
+    get:
+      tags: [Patients]
+      summary: List patients
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patients: { type: array, items: { $ref: '#/components/schemas/PatientRef' } }
+  /api/v1/patients/{id}:
+    get:
+      tags: [Patients]
+      summary: Get single patient
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Patient details with optional ABDM and summary
+
+  /api/v1/consultations/start:
+    post:
+      tags: [Consultations]
+      summary: Start consultation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id, doctor_id]
+              properties:
+                patient_id: { type: string }
+                doctor_id: { type: string }
+      responses:
+        '200':
+          description: Consultation started
+  /api/v1/consultations:
+    post:
+      tags: [Consultations]
+      summary: Save consultation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string }
+                notes: { type: string }
+      responses:
+        '200':
+          description: Consultation saved
+
+  /api/v1/medications:
+    get:
+      tags: [Medications]
+      summary: List medications
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Medications list
+
+  /api/v1/surgeries:
+    get:
+      tags: [Surgeries]
+      summary: List surgeries
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Surgeries list
+  /api/v1/surgeries/{id}:
+    get:
+      tags: [Surgeries]
+      summary: Get surgery detail
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Surgery detail
+
+  /api/v1/resources:
+    get:
+      tags: [Resources]
+      summary: List resources (OT, equipment)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Resources list
+
+  /api/v1/schedule:
+    get:
+      tags: [Schedule]
+      summary: Get schedule
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Schedule data
+
+  /api/v1/reminders/nudge:
+    post:
+      tags: [Reminders]
+      summary: Send medication nudge
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id, medication_id]
+              properties:
+                patient_id: { type: string }
+                medication_id: { type: string }
+      responses:
+        '200':
+          description: Nudge sent
+  /api/v1/reminders:
+    post:
+      tags: [Reminders]
+      summary: Schedule reminder
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string }
+                medication_id: { type: string }
+                scheduled_at: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Reminder scheduled
+
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List users (admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Users list
+  /api/v1/admin/audit:
+    get:
+      tags: [Admin]
+      summary: Audit log
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100 }
+      responses:
+        '200':
+          description: Audit items
+  /api/v1/admin/config:
+    get:
+      tags: [Admin]
+      summary: Get system config
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: System config
+    put:
+      tags: [Admin]
+      summary: Update system config
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated config
+  /api/v1/admin/analytics:
+    get:
+      tags: [Admin]
+      summary: Admin analytics
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Analytics payload
+
+  /api/v1/activity:
+    post:
+      tags: [Activity]
+      summary: Log doctor activity
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Logged
+
+  /api/v1/appointments:
+    get:
+      tags: [Admin]
+      summary: List appointments (from visits)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Appointments list (visits joined with patient/doctor)
+    post:
+      tags: [Admin]
+      summary: Create appointment (visit)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string }
+                doctor_id: { type: string }
+                visit_date: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        '200':
+          description: Appointment created
+
+  /api/v1/tasks:
+    get:
+      tags: [Dashboard]
+      summary: Pending clinical tasks (surgeries, reminders, follow-ups)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Tasks list for doctor dashboard
+
+  /api/v1/terminology:
+    get:
+      tags: [AI]
+      summary: Approved medical terminology (Hindi, Tamil) for Phase 3.4 / R7
+      responses:
+        '200':
+          description: Terminology map and supported languages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  terminology: { type: object, additionalProperties: { type: object } }
+                  languages: { type: array, items: { type: string } }
+
+  /api/ai/summarize:
+    post:
+      tags: [AI]
+      summary: Summarize conversation or text
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+                conversation: { type: array, items: { type: object } }
+      responses:
+        '200':
+          description: Summary with safety disclaimer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary: { type: string }
+                  safety_disclaimer: { type: string }
+  /api/ai/entities:
+    post:
+      tags: [AI]
+      summary: Extract medical entities from text
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+      responses:
+        '200':
+          description: Extracted entities (medications, conditions, etc.)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entities: { type: array }
+                  safety_disclaimer: { type: string }
+  /api/ai/surgery-support:
+    post:
+      tags: [AI]
+      summary: Surgery support guidance
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                surgery_type: { type: string }
+                patient_id: { type: string }
+                context: { type: string }
+      responses:
+        '200':
+          description: Checklist and guidance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  guidance: { type: string }
+                  checklist: { type: array }
+                  safety_disclaimer: { type: string }
+  /api/ai/translate:
+    post:
+      tags: [AI]
+      summary: Translate text (e.g. to Hindi/regional)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+                target_lang: { type: string, example: hi }
+                source_lang: { type: string, example: en }
+      responses:
+        '200':
+          description: Translated text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  translated: { type: string }
+                  source_lang: { type: string }
+                  target_lang: { type: string }
+
+  /api/ai/prescription:
+    post:
+      tags: [AI]
+      summary: AI-suggested prescription from patient history
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string }
+                conditions: { type: array, items: { type: string } }
+                history: { type: string }
+      responses:
+        '200':
+          description: Prescription suggestions with safety disclaimer
+  /api/ai/adherence:
+    post:
+      tags: [AI]
+      summary: Medication adherence analysis
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string }
+                medications: { type: array }
+                history: { type: string }
+      responses:
+        '200':
+          description: Adherence score and recommendations
+  /api/ai/engagement:
+    post:
+      tags: [AI]
+      summary: Patient engagement scoring
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string }
+                appointment_attendance: { type: object }
+                medication_adherence: { type: object }
+      responses:
+        '200':
+          description: Engagement score and recommendations
+  /api/ai/resources:
+    post:
+      tags: [AI]
+      summary: Health education resources for diagnosis
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                diagnosis: { type: string }
+                symptoms: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: Guides and recovery plan
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PatientRef:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        status: { type: string }
+
+security:
+  - bearerAuth: []

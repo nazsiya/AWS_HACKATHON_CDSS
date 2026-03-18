@@ -1,0 +1,81 @@
+# CDSS AWS smoke – manual run against deployed API (RBAC matrix)
+# Gets token for a test user, runs rbac_matrix.py, uploads report as artifact.
+
+name: AWS Smoke (RBAC)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "API base URL (e.g. https://xxx.execute-api.ap-south-1.amazonaws.com/dev). Override with secret or leave empty to use SMOKE_BASE_URL."
+        required: false
+        default: ""
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install boto3
+
+      - name: Get Cognito token
+        id: token
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+          COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+          COGNITO_CLIENT_ID: ${{ secrets.COGNITO_STAFF_CLIENT_ID }}
+          TEST_USERNAME: ${{ secrets.SMOKE_TEST_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+        run: |
+          TOKEN=$(python scripts/auth/get_token.py -u "$TEST_USERNAME" -p "$TEST_PASSWORD" 2>/dev/null) || exit 1
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "Token obtained successfully"
+
+      - name: Run RBAC matrix
+        id: rbac
+        env:
+          BASE_URL: ${{ inputs.base_url || secrets.SMOKE_BASE_URL }}
+          TOKEN: ${{ steps.token.outputs.token }}
+          PATIENT_ID: ${{ secrets.SMOKE_PATIENT_ID || 'PT-1001' }}
+        run: |
+          mkdir -p report
+          if python scripts/api_test_utils/rbac_matrix.py --base-url "$BASE_URL" --token "$TOKEN" --patient-id "$PATIENT_ID" -v 2>&1 | tee report/rbac_report.txt; then
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Write summary
+        run: |
+          echo "## RBAC smoke report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat report/rbac_report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.rbac.outputs.passed }}" = "true" ]; then
+            echo "**Result: PASSED**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Result: FAILED**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload RBAC report
+        uses: actions/upload-artifact@v4
+        with:
+          name: rbac-smoke-report
+          path: report/rbac_report.txt
+
+      - name: Fail if RBAC failed
+        if: steps.rbac.outputs.passed != 'true'
+        run: exit 1

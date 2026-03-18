@@ -1,0 +1,54 @@
+{
+  "$schema": "./gateway-config.schema.json",
+  "version": "1.0",
+  "description": "Gateway configuration for connecting CDSS frontend apps to AWS backend. Populate from: terraform output -json (in infrastructure/)",
+  "aws": {
+    "region": "ap-south-1",
+    "environment": "dev"
+  },
+  "apiGateway": {
+    "baseUrl": "https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev",
+    "cdssApiBase": "https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev/api/",
+    "healthUrl": "https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev/health",
+    "routes": {
+      "health": "/health",
+      "api": "/api/{proxy+}",
+      "dashboard": "/dashboard",
+      "agent": "/agent"
+    }
+  },
+  "websocket": {
+    "url": "wss://jcw3vemil9.execute-api.ap-south-1.amazonaws.com/dev",
+    "enabled": true,
+    "connectAuthQueryParam": "token"
+  },
+  "cognito": {
+    "region": "ap-south-1",
+    "userPoolId": "ap-south-1_0eRSiDzbY",
+    "staffClientId": "15hk1uremldsor79jkc7cr866v",
+    "patientClientId": "14qo2b4sdrjgbdnqietsj9jn3u"
+  },
+  "cloudFront": {
+    "staffAppUrl": "https://d2yy4v2hr1otkm.cloudfront.net",
+    "patientPortalUrl": "https://d1fbrepv6a9wx5.cloudfront.net"
+  },
+  "frontend": {
+    "useMock": false,
+    "doctorDashboard": {
+      "VITE_API_URL": "https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev",
+      "VITE_WS_URL": "wss://jcw3vemil9.execute-api.ap-south-1.amazonaws.com/dev",
+      "VITE_COGNITO_USER_POOL_ID": "ap-south-1_0eRSiDzbY",
+      "VITE_COGNITO_CLIENT_ID": "15hk1uremldsor79jkc7cr866v",
+      "VITE_COGNITO_REGION": "ap-south-1",
+      "VITE_USE_MOCK": "false"
+    },
+    "patientDashboard": {
+      "VITE_API_URL": "https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev",
+      "VITE_WS_URL": "wss://jcw3vemil9.execute-api.ap-south-1.amazonaws.com/dev",
+      "VITE_COGNITO_USER_POOL_ID": "ap-south-1_0eRSiDzbY",
+      "VITE_COGNITO_CLIENT_ID": "14qo2b4sdrjgbdnqietsj9jn3u",
+      "VITE_COGNITO_REGION": "ap-south-1",
+      "VITE_USE_MOCK": "false"
+    }
+  }
+}

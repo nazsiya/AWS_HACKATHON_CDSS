@@ -1,0 +1,127 @@
+.patient-portal {
+    padding: var(--space-8);
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.portal-header {
+    margin-bottom: var(--space-8);
+}
+
+.portal-title {
+    font-size: var(--text-3xl);
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.portal-subtitle {
+    font-size: var(--text-lg);
+    color: var(--text-secondary);
+}
+
+.portal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+    margin-bottom: var(--space-8);
+}
+
+.portal-card {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-md);
+}
+
+.portal-card--full {
+    grid-column: span 2;
+}
+
+.card-title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: var(--space-4);
+}
+
+.vitals-summary {
+    display: flex;
+    justify-content: space-between;
+}
+
+.vital-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.vital-label {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+.vital-value {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: var(--color-primary);
+}
+
+.med-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.med-name {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.med-time {
+    font-size: var(--text-sm);
+    color: var(--color-warning);
+    font-weight: 600;
+}
+
+.appointment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4);
+    background: var(--surface-bg);
+    border-radius: var(--radius-lg);
+}
+
+.app-doctor {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.app-type {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.app-time {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.portal-actions {
+    display: flex;
+    gap: var(--space-4);
+}
+
+@media (max-width: 768px) {
+    .portal-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .portal-card--full {
+        grid-column: span 1;
+    }
+}

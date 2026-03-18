@@ -1,0 +1,231 @@
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as rds from 'aws-cdk-lib/aws-rds';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import { Construct } from 'constructs';
+import * as path from 'path';
+
+export class CdssStack extends cdk.Stack {
+    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+        super(scope, id, props);
+
+        // ----------------------------------------------------------------
+        // 0. Stack Parameters (avoid naming collisions)
+        // ----------------------------------------------------------------
+        const envName = new cdk.CfnParameter(this, 'EnvName', {
+            type: 'String',
+            default: 'dev',
+            description: 'Environment name (dev, staging, prod)',
+        });
+
+        // ----------------------------------------------------------------
+        // 1. Network Layer
+        // ----------------------------------------------------------------
+        const vpc = new ec2.Vpc(this, 'CdssVpc', {
+            maxAzs: 2,
+            subnetConfiguration: [
+                { name: 'Public', subnetType: ec2.SubnetType.PUBLIC },
+                { name: 'Private', subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+                { name: 'Isolated', subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+            ],
+        });
+
+        // ----------------------------------------------------------------
+        // 2. Security Groups
+        // ----------------------------------------------------------------
+        const dbSecurityGroup = new ec2.SecurityGroup(this, 'DbSecurityGroup', {
+            vpc,
+            description: 'Allow PostgreSQL access from Lambda',
+            allowAllOutbound: true,
+        });
+
+        const lambdaSecurityGroup = new ec2.SecurityGroup(this, 'LambdaSecurityGroup', {
+            vpc,
+            description: 'Security group for backend Lambdas',
+            allowAllOutbound: true,
+        });
+
+        dbSecurityGroup.addIngressRule(
+            lambdaSecurityGroup,
+            ec2.Port.tcp(5432),
+            'Allow Lambda access to PostgreSQL'
+        );
+
+        // ----------------------------------------------------------------
+        // 3. Data Layer — Aurora PostgreSQL Serverless v2
+        // ----------------------------------------------------------------
+        const cluster = new rds.DatabaseCluster(this, 'CdssDatabase', {
+            engine: rds.DatabaseClusterEngine.auroraPostgres({
+                // CDK constants may lag behind regional Aurora patch versions.
+                // ap-south-1 supports Aurora PostgreSQL 15.14; use an explicit version string.
+                version: rds.AuroraPostgresEngineVersion.of('15.14', '15'),
+            }),
+            vpc,
+            vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+            securityGroups: [dbSecurityGroup],
+            writer: rds.ClusterInstance.serverlessV2('writer'),
+            serverlessV2MinCapacity: 0.5,
+            serverlessV2MaxCapacity: 2,
+            defaultDatabaseName: 'cdssdb',
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+        });
+
+        // Fail fast if CDK did not auto-create a secret for the cluster
+        if (!cluster.secret) {
+            throw new Error('Aurora cluster did not produce a Secrets Manager secret. Cannot continue.');
+        }
+        const rdsSecret = cluster.secret;
+
+        // ----------------------------------------------------------------
+        // 4. DynamoDB — Agent Sessions
+        // ----------------------------------------------------------------
+        const sessionsTable = new dynamodb.Table(this, 'SessionsTable', {
+            partitionKey: { name: 'session_id', type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            timeToLiveAttribute: 'ttl',
+            tableName: `cdss-agent-sessions-${envName.valueAsString}`,
+        });
+        sessionsTable.applyRemovalPolicy(cdk.RemovalPolicy.DESTROY);
+
+        // ----------------------------------------------------------------
+        // 5. Shared IAM Policies
+        // ----------------------------------------------------------------
+        const bedrockPolicy = new iam.PolicyStatement({
+            actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+            resources: ['*'], // In production, scoped to specific models
+        });
+
+        // ----------------------------------------------------------------
+        // 6. Shared Lambda Layer
+        // ----------------------------------------------------------------
+        const sharedLayer = new lambda.LayerVersion(this, 'SharedLayer', {
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/agents/shared')),
+            compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+            description: 'Shared utilities for CDSS agents',
+        });
+
+        // ----------------------------------------------------------------
+        // 7. Common DB environment variables
+        //    ALL Lambdas that touch the DB receive the same contract:
+        //      RDS_CONFIG_SECRET_NAME  — secret name read by get_rds_config()
+        //      AWS_REGION              — required by boto3 / IAM token generation
+        //
+        //    NOTE: DB_SECRET_ARN / DB_CLUSTER_ARN are intentionally omitted.
+        //    The application code (src/cdss/config/secrets.py) does NOT read
+        //    those variables; it reads RDS_CONFIG_SECRET_NAME.
+        // ----------------------------------------------------------------
+        const dbEnv = {
+            RDS_CONFIG_SECRET_NAME: rdsSecret.secretName,
+        };
+
+        // ----------------------------------------------------------------
+        // 8. Agent Lambda factory
+        // ----------------------------------------------------------------
+        const createAgent = (name: string, folder: string): lambda.Function => {
+            const fn = new lambda.Function(this, `${name}Function`, {
+                runtime: lambda.Runtime.PYTHON_3_11,
+                handler: 'handler.lambda_handler',
+                code: lambda.Code.fromAsset(path.join(__dirname, `../../backend/agents/${folder}`)),
+                vpc,
+                vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+                securityGroups: [lambdaSecurityGroup],
+                environment: {
+                    SESSIONS_TABLE: sessionsTable.tableName,
+                    ...dbEnv,
+                },
+                layers: [sharedLayer],
+                timeout: cdk.Duration.seconds(30),
+            });
+            fn.addToRolePolicy(bedrockPolicy);
+            sessionsTable.grantReadWriteData(fn);
+            cluster.grantConnect(fn, rdsSecret.secretValueFromJson('username').toString());
+            rdsSecret.grantRead(fn);
+            return fn;
+        };
+
+        // ----------------------------------------------------------------
+        // 9. Agent Lambdas
+        // ----------------------------------------------------------------
+        const supervisorAgent = createAgent('Supervisor', 'supervisor');
+        const patientAgent = createAgent('Patient', 'patient');
+        const surgeryAgent = createAgent('SurgeryPlanning', 'surgery_planning');
+        // ... Repeat for other agents (OMITTED for brevity in this tech preview)
+
+        // ----------------------------------------------------------------
+        // 10. EventBus — Inter-Agent Communication
+        // ----------------------------------------------------------------
+        const eventBus = new events.EventBus(this, 'CdssEventBus', {
+            eventBusName: `cdss-agent-bus-${envName.valueAsString}`,
+        });
+
+        new events.Rule(this, 'SupervisorToSubAgentRule', {
+            eventBus,
+            eventPattern: { detailType: ['AgentActionRequested'] },
+            targets: [new targets.LambdaFunction(patientAgent)],
+        });
+
+        // ----------------------------------------------------------------
+        // 11. Dashboard REST Lambda
+        //     Uses the SAME DB config contract as every other Lambda.
+        // ----------------------------------------------------------------
+        const dashboardFn = new lambda.Function(this, 'DashboardFunction', {
+            runtime: lambda.Runtime.PYTHON_3_11,
+            handler: 'dashboard_handler.lambda_handler',
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/api/rest')),
+            vpc,
+            vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+            securityGroups: [lambdaSecurityGroup],
+            environment: {
+                ...dbEnv,
+            },
+            layers: [sharedLayer],
+            timeout: cdk.Duration.seconds(30),
+        });
+
+        cluster.grantConnect(dashboardFn, rdsSecret.secretValueFromJson('username').toString());
+        rdsSecret.grantRead(dashboardFn);
+
+        // ----------------------------------------------------------------
+        // 12. REST API Gateway
+        // ----------------------------------------------------------------
+        const api = new apigateway.RestApi(this, 'CdssRestApi', {
+            restApiName: `CDSS Clinical API-${envName.valueAsString}`,
+            defaultCorsPreflightOptions: {
+                allowOrigins: apigateway.Cors.ALL_ORIGINS,
+                allowMethods: apigateway.Cors.ALL_METHODS,
+            },
+        });
+
+        // POST /agent  — supervisor entry point
+        api.root.addResource('agent').addMethod('POST', new apigateway.LambdaIntegration(supervisorAgent));
+
+        // GET /dashboard
+        api.root.addResource('dashboard').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+
+        // GET /health  — routes to dashboardFn which should call SELECT 1
+        api.root.addResource('health').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+
+        // ----------------------------------------------------------------
+        // 13. CloudFormation Outputs
+        // ----------------------------------------------------------------
+        new cdk.CfnOutput(this, 'RestApiUrl', {
+            value: api.url,
+            description: 'API Gateway base URL',
+        });
+
+        new cdk.CfnOutput(this, 'RdsConfigSecretName', {
+            value: rdsSecret.secretName,
+            description: 'Value to use as RDS_CONFIG_SECRET_NAME in all Lambdas and local .env files',
+        });
+
+        new cdk.CfnOutput(this, 'RdsClusterEndpoint', {
+            value: cluster.clusterEndpoint.hostname,
+            description: 'Aurora cluster endpoint (useful for SSM tunnel setup)',
+        });
+    }
+}

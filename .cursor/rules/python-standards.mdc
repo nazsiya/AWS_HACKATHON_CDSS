@@ -1,0 +1,45 @@
+---
+description: Python coding standards and best practices for CDSS services
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python Standards
+
+## Style
+- Follow PEP 8. Use Black for formatting, ruff for linting.
+- Max line length 100. Use `\` or parentheses for wrapping.
+- Use `snake_case` for functions/variables, `PascalCase` for classes.
+
+## Error Handling
+```python
+# ❌ BAD
+try:
+    result = call_api()
+except Exception:
+    pass
+
+# ✅ GOOD
+try:
+    result = call_api()
+except ClientError as e:
+    logger.error("API call failed", extra={"error": str(e), "operation": "call_api"})
+    raise
+```
+
+For **clinical logic** (patient risk, surgery readiness, scheduling), prefer:
+- Explicit custom exception types (e.g., `ClinicalRuleViolation`, `DataIntegrityError`).
+- Clear mapping of errors to HTTP status codes or MCP error responses.
+
+## Imports
+- Standard library first, then third-party, then local.
+- Use absolute imports. One import per line for readability.
+
+## Type Hints
+```python
+# ✅ GOOD
+def assess_triage(symptoms: list[str], vitals: dict[str, float]) -> TriageResult:
+    ...
+```
+
+Where possible, reference the core data models from the CDSS design (PatientRecord, Surgery, HospitalResource, ConversationRecord) instead of loose `dict` types.

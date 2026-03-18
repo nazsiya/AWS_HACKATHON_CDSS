@@ -1,0 +1,2 @@
+# Optional: for ws_client.py (pip install -r requirements.txt)
+websocket-client>=1.6.0

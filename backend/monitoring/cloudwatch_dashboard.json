@@ -1,0 +1,75 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [
+                        "CDSS/Agents",
+                        "BedrockLatency",
+                        "AgentName",
+                        "Supervisor"
+                    ],
+                    [
+                        ".",
+                        ".",
+                        ".",
+                        "Patient"
+                    ],
+                    [
+                        ".",
+                        ".",
+                        ".",
+                        "SurgeryPlanning"
+                    ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "ap-south-1",
+                "title": "Agent Bedrock Invocation Latency (ms)"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [
+                        "CDSS/Clinical",
+                        "CriticalAlerts",
+                        "Severity",
+                        "Critical"
+                    ],
+                    [
+                        ".",
+                        "Warnings",
+                        ".",
+                        "Warning"
+                    ]
+                ],
+                "view": "bar",
+                "region": "ap-south-1",
+                "title": "Clinical Alerts Frequency (24h)"
+            }
+        },
+        {
+            "type": "log",
+            "x": 0,
+            "y": 6,
+            "width": 24,
+            "height": 6,
+            "properties": {
+                "query": "SOURCE '/aws/lambda/SupervisorFunction' | filter @message like /Routing/ | stats count(*) by detail.target_agent",
+                "region": "ap-south-1",
+                "title": "Multi-Agent Routing Activity"
+            }
+        }
+    ]
+}

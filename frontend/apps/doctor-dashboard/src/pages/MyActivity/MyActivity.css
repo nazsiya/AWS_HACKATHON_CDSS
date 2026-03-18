@@ -1,0 +1,126 @@
+/* My Activity — Doctor_ID-linked history (Criteria 4) */
+
+.my-activity-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.my-activity-page__header {
+  margin-bottom: var(--space-5);
+}
+
+.my-activity-page__title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.my-activity-page__desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.my-activity-page__list {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.my-activity-page__empty {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--text-secondary);
+}
+
+.my-activity-page__empty-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--space-3);
+}
+
+.activity-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.activity-timeline__item {
+  position: relative;
+  padding-left: var(--space-6);
+  padding-bottom: var(--space-4);
+}
+
+.activity-timeline__item:last-child {
+  padding-bottom: 0;
+}
+
+.activity-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 12px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--surface-border);
+}
+
+.activity-timeline__item:last-child::before {
+  display: none;
+}
+
+.activity-timeline__dot {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid var(--surface-card);
+  box-sizing: border-box;
+}
+
+.activity-timeline__content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.activity-timeline__action {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.activity-timeline__patient {
+  color: var(--text-secondary);
+}
+
+.activity-timeline__link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font-size: inherit;
+}
+
+.activity-timeline__link:hover {
+  color: var(--color-primary-hover, var(--color-primary));
+}
+
+.activity-timeline__detail {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.activity-timeline__time {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}

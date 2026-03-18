@@ -1,50 +1,99 @@
-# Bytecode
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-.Python
+*$py.class
 *.so
-
-# Virtual env
-.venv/
+.Python
 venv/
+.venv/
 env/
-CDSS/
+.env
+*.egg-info/
+.eggs/
+dist/
+build/
 
-# IDE
+# Node
+node_modules/
+.npm
+*.log
+.env.local
+.env.*.local
+
+# IDE & OS
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# Build and deploy
-dist/
-build/
-*.egg-info/
-*.egg
-lambda.zip
-infrastructure/lambda.zip
-
-# Terraform
-infrastructure/.terraform/
-*.tfstate
-*.tfstate.*
-.terraform.lock.hcl
-
-# Env and secrets
-.env
-.env.*
-!.env.example
-
-# Test and coverage
-.coverage
-htmlcov/
-.pytest_cache/
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-logs/
+# Cursor (AI IDE)
+.cursor/plans/
+.cursor/worktrees.json
+.cursor copy/
+
+# Workspace / installers (do not commit)
+*.code-workspace
+*.msi
+
+# Secrets & env
+.env
+*.pem
+.env.local
+.ssh/
+config.json
+config/my-config.json
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Terraform local state and lock (keep infrastructure code; ignore state)
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfplan
+terraform.tfvars
+**/lambda.zip
+**/lambda_payload.zip
+gateway_config.json
+**/gateway_tools.zip
+infrastructure/websocket_authorizer_lambda.zip
+
+# Root-level artifacts (keep repo clean)
+/*.exe
+/all-secrets.json
+/secret_val.json
+/api_logs*.json
+/api_log_streams.json
+/full_logs.json
+/log_events.json
+/log_streams.json
+/logs.txt
+/aurora_details.json
+/payload.json
+/payload_seed.json
+/response.json
+/seed_response.json
+/phase3*.txt
+/48201_apps.txt
+/ad268_*.txt
+/App_48201.jsx
+/App_ad268.jsx
+/temp_script.py
+
+# Old folder merged into infrastructure/
+infrastructure_/
+
+# Docs not for public push (credentials, internal reports)
+docs_archive/
+
+# Local file used for git filter-repo (never commit)
+.git-credentials-replacements.txt

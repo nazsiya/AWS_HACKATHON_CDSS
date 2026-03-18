@@ -1,0 +1,25 @@
+﻿{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:ListAgents",
+                "bedrock:GetAgent",
+                "bedrock:CreateAgent",
+                "bedrock:UpdateAgent",
+                "bedrock:DeleteAgent",
+                "bedrock:ListAgentVersions",
+                "bedrock:ListAgentAliases",
+                "bedrock:InvokeAgent",
+                "bedrock:CreateAgentVersion"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::746412758276:role/*Bedrock*"
+        }
+    ]
+}

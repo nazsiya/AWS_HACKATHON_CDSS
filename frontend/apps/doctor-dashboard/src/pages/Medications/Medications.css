@@ -1,0 +1,375 @@
+/* ============================================
+   Clinical Workboard – Doctor Clinical Workspace
+   12-column grid, 24px padding, 32px section gaps
+   ============================================ */
+
+.cw-page {
+  padding: 24px;
+  background: #ffffff;
+  min-height: calc(100vh - var(--header-height, 60px));
+}
+
+.cw-breadcrumb {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.cw-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 32px;
+}
+
+.cw-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Cards */
+.cw-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+}
+
+.cw-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 16px;
+}
+
+/* 1. Top Summary Strip */
+.cw-summary-strip {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.cw-summary-card {
+  position: relative;
+  padding-left: 20px;
+}
+
+.cw-summary-card__dot {
+  position: absolute;
+  left: 0;
+  top: 28px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+}
+
+.cw-summary-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.cw-summary-card__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.cw-summary-card__updated {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* 2. Main work area – 70% (8 cols) */
+.cw-main {
+  grid-column: span 8;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.cw-table-wrap {
+  overflow-x: auto;
+}
+
+.cw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.cw-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.cw-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+.cw-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.cw-sort-btn {
+  background: none;
+  border: none;
+  font: inherit;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cw-sort-btn:hover {
+  color: #2563eb;
+}
+
+.cw-priority {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cw-priority--high {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.cw-priority--medium {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.cw-priority--low {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.cw-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  transition: all 0.15s ease;
+}
+
+.cw-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.cw-btn--view {
+  color: #2563eb;
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.cw-btn--view:hover {
+  background: #dbeafe;
+}
+
+.cw-btn--sm {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+/* Pending Clinical Tasks */
+.cw-tasks-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cw-tasks-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cw-tasks-item:last-child {
+  border-bottom: none;
+}
+
+.cw-tasks-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.cw-tasks-link:hover {
+  color: #2563eb;
+}
+
+.cw-tasks-count {
+  color: #6b7280;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+/* 3. Right sidebar – Operational Alert Center – 30% (4 cols) */
+.cw-sidebar {
+  grid-column: span 4;
+}
+
+.cw-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cw-alert {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: 13px;
+}
+
+.cw-alert--emergency {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.cw-alert--staffing {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.cw-alert--escalation {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #4b5563;
+}
+
+.cw-alert--shift {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.cw-alert--info {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #4b5563;
+}
+
+.cw-alert__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.cw-alert__title {
+  font-weight: 600;
+}
+
+.cw-alert__type {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.cw-alert__detail {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.95;
+}
+
+.cw-alert__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cw-alert__time {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* 4. Today's Schedule Panel */
+.cw-schedule-section {
+  grid-column: 1 / -1;
+}
+
+.cw-schedule-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cw-schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.cw-schedule__time {
+  font-weight: 600;
+  color: #374151;
+  min-width: 80px;
+}
+
+.cw-schedule__dash {
+  color: #9ca3af;
+}
+
+.cw-schedule__activity {
+  color: #111827;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .cw-summary-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cw-main {
+    grid-column: 1 / -1;
+  }
+
+  .cw-sidebar {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .cw-summary-strip {
+    grid-template-columns: 1fr;
+  }
+}

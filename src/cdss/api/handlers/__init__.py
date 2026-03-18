@@ -1,1 +1,1 @@
-"""Lambda handlers for CDSS API Gateway and WebSocket."""
+# CDSS API handlers

@@ -1,0 +1,29 @@
+{
+    "ClinicalSecrets": {
+        "Name": "cdss/clinical/credentials",
+        "Description": "Secure credentials for ABDM Gateway, HIS API, and RDS Database.",
+        "GenerateSecretString": {
+            "SecretStringTemplate": "{\"db_username\": \"cdss_admin\"}",
+            "GenerateStringKey": "db_password",
+            "PasswordLength": 32,
+            "ExcludeCharacters": "\"@/\\"
+        }
+    },
+    "KMSKey": {
+        "Description": "KMS key for patient data encryption (at rest and in transit).",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "Origin": "AWS_KMS",
+        "MultiRegion": false,
+        "PendingWindowInDays": 7,
+        "Tags": [
+            {
+                "Key": "Project",
+                "Value": "CDSS"
+            },
+            {
+                "Key": "Compliance",
+                "Value": "DISHA"
+            }
+        ]
+    }
+}

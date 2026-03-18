@@ -1,0 +1,3 @@
+# AgentCore Runtime agent – minimal deps for direct code deployment
+# See docs/agentcore-create-agents-in-aws.md
+bedrock-agentcore>=0.1.0

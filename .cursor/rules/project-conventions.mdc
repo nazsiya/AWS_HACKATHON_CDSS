@@ -1,0 +1,42 @@
+---
+description: CDSS project conventions, multi-agent architecture, safety, compliance
+alwaysApply: true
+---
+
+# CDSS – Project Standards
+
+## Project Context
+- Clinical Decision Support System (CDSS) with **Doctor Module** and **Patient Module**.
+- Multi-agent architecture: Patient, Surgery, Resource, Scheduling, and Patient Engagement agents.
+- Tech stack: Python backend + MCP servers, React/JS frontend, AWS (Lambda, API Gateway, RDS/Aurora, S3, Bedrock).
+- Healthcare/safety‑critical: conservative defaults, explainable behavior, strong auditability and security.
+
+## General Coding Standards
+- Use type hints in Python; keep functions focused and well‑named.
+- Prefer pure functions for agent/business logic; push IO (AWS, DB, HTTP) to edges.
+- Log errors with clinical and technical context; never swallow exceptions silently.
+- Write docstrings for public functions, classes, and MCP tool handlers describing **clinical intent** and **side‑effects**.
+
+## Security, Privacy, and Compliance
+- **IAM & Secrets Manager only**: no long‑lived credentials, no `.env` with secrets, no hardcoded keys. Use IAM roles and AWS Secrets Manager.
+- Treat all patient/doctor identifiers (`Patient_ID`, `Doctor_ID`, ABHA IDs) as **sensitive**; never log raw identifiers with clinical content.
+- Enforce role‑based access: Doctor module can see multi‑patient data; Patient module can only see that patient’s own record and engagement data.
+- Design for Indian data‑localization: patient data must live in India regions and be encrypted at rest and in transit.
+- Maintain audit trails for all clinically relevant actions (who, what, when, which patient/record).
+
+## Clinical Safety and AI Usage
+- AI is **doctor‑in‑the‑loop**: agents provide recommendations and summaries, not final medical decisions.
+- Always include safety disclaimers in patient‑facing AI summaries and educational content.
+- Validate and normalize all model outputs via strict schemas (Pydantic/Typed models) before use.
+- When confidence or data quality is low, **escalate to human review** and choose the safer option (e.g., higher priority, extra checks).
+
+## Multi‑Agent and MCP Conventions
+- Each agent exposes a clear MCP contract focused on its domain (Patient, Surgery, Resource, Scheduling, Engagement).
+- Use structured messages with explicit `patientId`, `doctorId`, `sourceModule`, and `correlationId` for cross‑agent calls.
+- Agents must be **idempotent** where possible and safe against duplicate messages.
+- Prefer small, composable MCP tools over giant “god” tools; keep payloads clinically scoped.
+
+## Testing and Quality
+- For safety‑critical flows (scheduling surgery, drug interactions, emergency alerts), add property‑based tests that reference the design document properties.
+- Cover RBAC boundaries, audit generation, and error handling in unit/integration tests.
+- Favor feature flags or configuration for hospital‑specific behavior (not forks in code).

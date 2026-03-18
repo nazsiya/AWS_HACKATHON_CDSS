@@ -1,0 +1,10 @@
+{
+  "aws_region": "ap-south-1",
+  "cognito_user_pool_id": "ap-south-1_0eRSiDzbY",
+  "api_base_url": "https://b1q9qcuqia.execute-api.ap-south-1.amazonaws.com/dev",
+  "mcp_hospital_endpoint": "",
+  "mcp_abdm_endpoint": "",
+  "abdm_sandbox_url": "",
+  "hospital_mcp_api_key": "",
+  "abdm_sandbox_api_key": ""
+}

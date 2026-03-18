@@ -1,0 +1,134 @@
+/* Alerts Center — Severity triage & alert log */
+
+.alerts-page {
+  max-width: 900px;
+}
+
+.alerts-page__title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  margin: 0 0 var(--space-2);
+}
+
+.alerts-page__desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-5);
+}
+
+.alerts-triage {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.alerts-triage__btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.alerts-triage__btn:hover,
+.alerts-triage__btn.active {
+  background: var(--surface-hover);
+  border-color: var(--color-primary);
+}
+
+.alerts-triage__count {
+  font-weight: 700;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.alerts-triage__count--critical {
+  color: var(--color-critical, #c00);
+}
+
+.alerts-triage__count--warning {
+  color: var(--color-warning, #e6a800);
+}
+
+.alerts-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.alerts-log__empty {
+  color: var(--text-muted);
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.alert-log-item {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  border-left: 4px solid var(--text-muted);
+}
+
+.alert-log-item--critical {
+  border-left-color: var(--color-critical, #c00);
+}
+
+.alert-log-item--warning {
+  border-left-color: var(--color-warning, #e6a800);
+}
+
+.alert-log-item--success {
+  border-left-color: var(--color-success, #0a0);
+}
+
+.alert-log-item__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.alert-log-item__title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.alert-log-item__patient {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.alert-log-item__category {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.alert-log-item__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.alert-log-item__time {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.alert-log-item__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.alert-log-item__message {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}

@@ -1,0 +1,48 @@
+{
+  "description": "CDSS Aurora + SSM tunnel key details for running migrations and seed from local machine",
+  "region": "ap-south-1",
+  "aurora": {
+    "cluster_identifier": "cdss-dev-aurora-cluster",
+    "instance_identifier": "cdss-dev-aurora-instance",
+    "endpoint": "cdss-dev-aurora-instance.c3coggyeulk5.ap-south-1.rds.amazonaws.com",
+    "port": 5432,
+    "database_name": "cdssdb",
+    "master_username": "cdssadmin",
+    "publicly_accessible": true,
+    "security_group_id": "sg-052fefe84748d25cd",
+    "security_group_name": "cdss-dev-aurora-sg",
+    "vpc_id": "vpc-0de2b26e7f9394477",
+    "subnets": [
+      { "subnet_id": "subnet-07950d1e26581c0c7", "az": "ap-south-1a" },
+      { "subnet_id": "subnet-02f6398592f2062dd", "az": "ap-south-1b" }
+    ],
+    "allowed_cidr_ingress": ["10.0.0.0/16", "101.127.84.93/32"]
+  },
+  "bastion": {
+    "instance_id": "i-08eca02993fe51295",
+    "public_ip": "43.204.30.87",
+    "private_ip": "10.0.10.104",
+    "security_group_id": "sg-05e38417e23f88774",
+    "security_group_name": "cdss-dev-bastion-sg",
+    "ssm_ping_status": "Online",
+    "instance_type": "t3.micro"
+  },
+  "ssm_tunnel": {
+    "document_name": "AWS-StartPortForwardingSessionToRemoteHost",
+    "target_instance_id": "i-08eca02993fe51295",
+    "remote_host": "cdss-dev-aurora-instance.c3coggyeulk5.ap-south-1.rds.amazonaws.com",
+    "remote_port": 5432,
+    "local_port": 5433,
+    "powershell_parameters": "host=cdss-dev-aurora-instance.c3coggyeulk5.ap-south-1.rds.amazonaws.com,portNumber=5432,localPortNumber=5433",
+    "one_liner": "aws ssm start-session --target i-08eca02993fe51295 --document-name AWS-StartPortForwardingSessionToRemoteHost --parameters \"host=cdss-dev-aurora-instance.c3coggyeulk5.ap-south-1.rds.amazonaws.com,portNumber=5432,localPortNumber=5433\" --region ap-south-1"
+  },
+  "database_url": {
+    "via_tunnel": "postgresql://cdssadmin:YOUR_PASSWORD@localhost:5433/cdssdb",
+    "direct_note": "Direct connection to Aurora endpoint times out; use SSM tunnel."
+  },
+  "run_seed_steps": [
+    "1. Terminal 1: .\\scripts\\start_ssm_tunnel.ps1  (leave running)",
+    "2. Terminal 2: $env:CDSS_DB_PASSWORD='yourpassword'; .\\scripts\\run_seed_via_tunnel.ps1",
+    "Or: $env:DATABASE_URL='postgresql://cdssadmin:PASSWORD@localhost:5433/cdssdb'; python scripts/run_migrations.py; python -m cdss.db.seed"
+  ]
+}

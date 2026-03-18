@@ -1,0 +1,94 @@
+[
+    {
+        "TableName": "cdss-agent-sessions",
+        "KeySchema": [
+            {
+                "AttributeName": "session_id",
+                "KeyType": "HASH"
+            }
+        ],
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "session_id",
+                "AttributeType": "S"
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "TimeToLiveSpecification": {
+            "AttributeName": "ttl",
+            "Enabled": true
+        },
+        "Description": "Stores multi-agent conversation history, clinical reasoning paths, and audit trails."
+    },
+    {
+        "TableName": "cdss-medication-schedules",
+        "KeySchema": [
+            {
+                "AttributeName": "patient_id",
+                "KeyType": "HASH"
+            },
+            {
+                "AttributeName": "medication_id",
+                "KeyType": "RANGE"
+            }
+        ],
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "patient_id",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "medication_id",
+                "AttributeType": "S"
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "Description": "Real-time medication tracking for patient engagement and reminders."
+    },
+    {
+        "TableName": "cdss-realtime-alerts",
+        "KeySchema": [
+            {
+                "AttributeName": "patient_id",
+                "KeyType": "HASH"
+            },
+            {
+                "AttributeName": "timestamp",
+                "KeyType": "RANGE"
+            }
+        ],
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "patient_id",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "timestamp",
+                "AttributeType": "N"
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "Description": "Buffering and indexing active clinical alerts for the dashboard websocket."
+    },
+    {
+        "TableName": "cdss-websocket-connections",
+        "KeySchema": [
+            {
+                "AttributeName": "connection_id",
+                "KeyType": "HASH"
+            }
+        ],
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "connection_id",
+                "AttributeType": "S"
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "TimeToLiveSpecification": {
+            "AttributeName": "ttl",
+            "Enabled": true
+        },
+        "Description": "Tracks active WebSocket connections for real-time clinical updates."
+    }
+]

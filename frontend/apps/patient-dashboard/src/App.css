@@ -1,0 +1,2 @@
+.app-layout { display: flex; min-height: 100vh; }
+.app-main { flex: 1; margin-left: var(--sidebar-width); margin-top: var(--header-height); padding: var(--space-6); min-height: calc(100vh - var(--header-height)); }

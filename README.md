@@ -1,89 +1,100 @@
-# CDSS — Clinical Decision Support System
+# AI Hackathon — Clinical Decision Support System (CDSS)
 
-**Multi-agent AI platform for Indian hospitals** — DISHA compliant, serverless-first, on AWS (ap-south-1). Target budget: **<$100/month**.
+An AI-powered healthcare platform for Indian hospitals that combines role-based access control with specialized AI agents for patient management, surgical support, resource optimization, and clinical decision support.
 
-## Stack
+## Where is everything?
 
-| Component | Technology |
-|-----------|------------|
-| **AI** | Amazon Bedrock (Claude 3 Haiku) |
-| **Compute** | AWS Lambda (Python 3.12) |
-| **API** | Amazon API Gateway (REST + WebSocket) |
-| **Data** | DynamoDB, S3, RDS PostgreSQL (optional) |
-| **RAG** | Amazon OpenSearch (patient history vectors) |
-| **Frontend** | AWS Amplify (React) |
-| **ML/NLP** | Amazon Transcribe, Comprehend Medical, Translate |
-| **IaC** | Terraform |
+- **This repo (plan, backend, infra)** — You are in the worktree: `...\AI_Hackathon_CDSS\agr`. It contains `clinical-decision-support-system/`, `infrastructure/`, `src/cdss/`, etc.
+- **Doctor dashboard (frontend)** — It lives in **`D:\HACKATHON\CDSS-Frontend`** (separate folder).
 
-## Agents
+**To have everything in one folder (e.g. `C:\AI_HACKATHON_CDSS` or `D:\AI_HACKATHON_CDSS`):**
 
-Five domain agents orchestrated by a **Supervisor**:
+1. Create a folder: `D:\AI_HACKATHON_CDSS` (or any path you want).
+2. Copy the **entire contents** of this repo (agr) into it.
+3. Copy the **entire contents** of `D:\HACKATHON\CDSS-Frontend` into the same folder (merge: you should get an `apps` folder with `doctor-dashboard`, a `backend` folder, and `infra` next to your existing `clinical-decision-support-system`, `infrastructure`, `src`).
+4. Open `D:\AI_HACKATHON_CDSS` in Cursor/VS Code — you’ll see one project with plan, backend, infra, and frontend together.
 
-- **Patient Agent** — History retrieval, RAG summaries, create/update patient, getSummary  
-- **Surgery Planning Agent** — OT checklists, protocols, analyseSurgery, generateChecklist  
-- **Resource Agent** — OT availability, equipment, checkOT, allocateEquipment  
-- **Scheduling Agent** — Appointments, OT booking, bookSlot, resolveConflict  
-- **Engagement Agent** — Reminders (multilingual), escalation, sendReminder, escalateToDoctor  
+## Overview
 
-## Project structure
+The Clinical Decision Support System (CDSS) provides:
+
+- **Role-based access** — Doctor Module (full clinical access) and Patient Module (personal health only)
+- **Five AI agents** — Patient, Surgery, Resource, Scheduling, and Patient Engagement agents communicating via Model Context Protocol (MCP)
+- **India-first** — Multilingual support (Hindi, English, regional languages), cultural adaptation, and resource-aware design
+- **Unified workflows** — Patient history, surgery readiness, medication adherence, real-time surgical support, and automated specialist replacement
+
+## Repository Structure (after merging frontend)
 
 ```
-├── src/cdss/
-│   ├── api/           # Lambda handlers, middleware, routes, WebSocket
-│   ├── agents/        # Bedrock multi-agent (Supervisor + 5 agents)
-│   ├── core/          # Config, Bedrock client, DISHA, logging
-│   ├── models/        # Pydantic models (patient, surgery, resource)
-│   └── services/      # RAG, Comprehend Medical, Transcribe, Translate, MCP
-├── infrastructure/    # Terraform (Lambda, API Gateway, DynamoDB, S3, EventBridge)
-├── tests/             # Unit, integration, e2e
-├── docs/              # Architecture, API, deployment
-├── DESIGN_IMPLEMENTATION.md
+AI_HACKATHON_CDSS/
+├── apps/
+│   └── doctor-dashboard/     # React doctor UI (from CDSS-Frontend)
+├── backend/                  # Python Lambdas (from CDSS-Frontend)
+├── infra/                    # CDK (from CDSS-Frontend)
+├── clinical-decision-support-system/
+│   ├── requirements.md
+│   ├── design.md
+│   └── implementation-plan.md
+├── infrastructure/           # Terraform
+├── src/
+│   └── cdss/                # API handlers
+├── .gitignore
 └── README.md
 ```
 
-## Quick start
+## Documentation
 
-1. **Clone and install**
+| Document | Description |
+|----------|-------------|
+| [Requirements](clinical-decision-support-system/requirements.md) | User stories, acceptance criteria, and system requirements |
+| [Design](clinical-decision-support-system/design.md) | Architecture, multi-agent design, RBAC, and integration details |
 
-   ```bash
-   git clone <repo-url>
-   cd CDSS
-   pip install -r requirements.txt
-   pip install -e .
-   ```
+## Python and virtual environment
 
-2. **Run tests**
+**All Python dependencies must be installed only inside the project virtual environment** (no global `pip install`).
 
-   ```bash
-   pytest tests/unit -v
-   ```
+- **Location:** `D:\AI_Hackathon_CDSS\.venv` (or `<repo>\.venv`). The venv lives on the same drive as the repo so it does not use C: space.
+- **Backend dependencies:** Listed in `backend/agents/requirements.txt`. They are already installed in `.venv` (boto3, botocore, pydantic, python-dateutil, etc.).
 
-3. **Deploy (Terraform)**
+**Use the venv for every Python/pip command:**
 
-   ```bash
-   cd infrastructure
-   terraform init
-   terraform plan -var stage=dev
-   terraform apply -var stage=dev
-   ```
+**PowerShell (Windows):**
+```powershell
+# Activate
+.\.venv\Scripts\Activate.ps1
 
-4. **Call API**
+# Then run Python or pip (everything stays inside .venv)
+pip install -r backend\agents\requirements.txt   # only if you add new deps
+python -m your_module
+```
 
-   Use `terraform output api_gateway_url` and send `POST` to `/cdss/patient`, `/cdss/surgery`, etc. (see [docs/api.md](docs/api.md)).
+**Or call the venv’s executables directly (no activate):**
+```powershell
+.\.venv\Scripts\pip.exe install -r backend\agents\requirements.txt
+.\.venv\Scripts\python.exe -m your_module
+```
 
-## Docs
+**CMD (Windows):**
+```cmd
+.venv\Scripts\activate.bat
+pip install -r backend\agents\requirements.txt
+```
 
-- [Architecture](docs/architecture.md) — Layers, agents, data flow  
-- [API](docs/api.md) — REST endpoints and WebSocket  
-- [Deployment](docs/deployment.md) — Terraform, env vars, Amplify  
-- [Design & implementation](DESIGN_IMPLEMENTATION.md) — Design decisions and implementation guide  
+Do **not** run `pip install` or `python -m` without activating `.venv` or using `.venv\Scripts\pip.exe` / `.venv\Scripts\python.exe`, so that nothing is installed globally.
 
-## Compliance
+To (re)install backend dependencies into the venv only, from repo root run:
+```powershell
+.\scripts\install-python-deps.ps1
+```
 
-- **DISHA** — Audit logging (CloudWatch), consent, PHI handling  
-- **ABDM** — Integration via ABDM/EHR MCP for digital health IDs  
-- **Region** — ap-south-1 (Mumbai)  
+## Key Capabilities
+
+- **Patient Agent** — Patient profiles, surgery readiness, medical history, multilingual data
+- **Surgery Agent** — Surgery classification, requirements, checklists, real-time procedural support
+- **Resource Agent** — Staff, OT, and equipment availability; conflict detection
+- **Scheduling Agent** — Surgical scheduling and resource allocation
+- **Patient Engagement Agent** — Conversation summaries, medication reminders, adherence tracking
 
 ## License
 
-MIT (or your chosen license).
+See repository and project documentation for license and usage terms.

@@ -1,0 +1,129 @@
+.debug-page {
+  max-width: 56rem;
+}
+
+.debug-section {
+  margin-bottom: var(--space-8, 1.5rem);
+  padding-bottom: var(--space-6, 1rem);
+  border-bottom: 1px solid var(--surface-border, #e5e7eb);
+}
+
+.debug-section:last-child {
+  border-bottom: none;
+}
+
+.debug-section h3 {
+  font-size: var(--text-lg, 1.125rem);
+  margin: 0 0 var(--space-2, 0.5rem);
+}
+
+.debug-muted {
+  color: var(--text-muted, #6b7280);
+  font-size: var(--text-sm, 0.875rem);
+  margin: 0 0 var(--space-3, 0.75rem);
+}
+
+.debug-btn {
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  margin-right: var(--space-2);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--surface-border, #d1d5db);
+  border-radius: var(--radius-md, 6px);
+  background: var(--surface-card, #fff);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+
+.debug-btn:hover:not(:disabled) {
+  background: var(--surface-hover, #f3f4f6);
+}
+
+.debug-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.debug-card {
+  padding: var(--space-4);
+  background: var(--surface-card, #f9fafb);
+  border: 1px solid var(--surface-border, #e5e7eb);
+  border-radius: var(--radius-lg, 8px);
+}
+
+.debug-card strong {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.debug-pre {
+  font-size: var(--text-xs, 0.75rem);
+  overflow-x: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.debug-ok {
+  color: var(--success, #059669);
+}
+
+.debug-fail {
+  color: var(--error, #dc2626);
+}
+
+.debug-forbidden {
+  color: var(--warning, #d97706);
+}
+
+.debug-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+}
+
+.debug-list li {
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+}
+
+.debug-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.debug-status {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.debug-status-connected {
+  color: var(--success, #059669);
+}
+
+.debug-status-disconnected {
+  color: var(--text-muted, #6b7280);
+}
+
+.debug-status-error {
+  color: var(--error, #dc2626);
+}
+
+.debug-messages {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.debug-monospace {
+  font-family: ui-monospace, monospace;
+  font-size: var(--text-xs);
+}

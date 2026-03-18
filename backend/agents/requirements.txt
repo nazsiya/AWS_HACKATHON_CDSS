@@ -1,0 +1,10 @@
+# CDSS Backend — Bedrock Multi-Agent System
+# Python Lambda functions for clinical decision support
+
+boto3>=1.34.0
+botocore>=1.34.0
+pydantic>=2.5.0
+python-dateutil>=2.8.2
+# Data layer (Aurora PostgreSQL)
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0

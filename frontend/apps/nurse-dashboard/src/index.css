@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+:root {
+  --color-primary: hsl(220, 90%, 56%); --color-primary-bg: hsl(220, 90%, 96%); --color-accent: hsl(262, 83%, 58%);
+  --color-critical: hsl(0, 84%, 60%);
+  --surface-bg: hsl(220, 20%, 97%); --surface-card: #fff; --surface-hover: hsl(220, 20%, 94%); --surface-border: hsl(220, 13%, 91%);
+  --text-primary: hsl(222, 47%, 11%); --text-muted: hsl(215, 13%, 65%);
+  --radius-md: 10px; --radius-lg: 14px; --radius-2xl: 20px;
+  --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem; --space-6: 1.5rem; --space-8: 2rem;
+  --text-xs: 0.75rem; --text-sm: 0.8125rem; --text-base: 0.875rem; --text-lg: 1rem; --text-xl: 1.125rem; --text-2xl: 1.25rem;
+  --duration-normal: 250ms; --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --sidebar-width: 260px; --sidebar-collapsed: 72px; --header-height: 64px;
+}
+[data-theme="dark"] { --surface-bg: hsl(222, 47%, 8%); --surface-card: hsl(222, 47%, 13%); --surface-hover: hsl(222, 47%, 16%); --surface-border: hsl(222, 30%, 22%); --text-primary: hsl(210, 40%, 96%); --text-muted: hsl(215, 15%, 45%); --color-primary-bg: hsla(220, 90%, 56%, 0.12); }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: var(--surface-bg); color: var(--text-primary); line-height: 1.6; }
+.page-title { font-size: var(--text-2xl); font-weight: 700; margin-bottom: var(--space-2); }
+.text-muted { color: var(--text-muted); font-size: var(--text-sm); }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.animate-in { animation: fadeInUp 0.3s var(--ease-out) both; }

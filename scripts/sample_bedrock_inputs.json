@@ -1,0 +1,33 @@
+{
+  "doctor_summary": {
+    "patient": {
+      "gender": "male",
+      "conditions": ["hypertension", "type 2 diabetes"],
+      "allergies": ["penicillin"],
+      "vitals": { "bp": "140/90", "hr": 105, "spo2": 94 },
+      "severity": "high",
+      "status": "stable",
+      "surgery_readiness": { "status": "pending", "checklist_done": false }
+    },
+    "recent_visits": [
+      {
+        "id": 1,
+        "visit_date": "2025-03-01",
+        "doctor_id": "DR-001",
+        "notes": "Patient reports chest pain for 2 hours. ECG ordered. Given aspirin 325mg. Vitals stable.",
+        "summary": ""
+      },
+      {
+        "id": 2,
+        "visit_date": "2025-02-15",
+        "doctor_id": "DR-001",
+        "notes": "Routine follow-up for HTN and T2DM. HbA1c 7.8. Continue metformin, add lifestyle advice.",
+        "summary": "Follow-up for hypertension and diabetes; medications continued."
+      }
+    ]
+  },
+  "patient_summary": {
+    "transcript_text": "Doctor: What brings you in today? Patient: I have had chest pain for about 2 hours, goes to my left arm. Doctor: Any sweating or shortness of breath? Patient: Yes, a bit. Doctor: We will do an ECG and blood tests. I am giving you aspirin now. Please stay for observation.",
+    "patient_context": "Hypertension, Type 2 diabetes. On metformin and amlodipine."
+  }
+}

@@ -1,0 +1,37 @@
+---
+description: CDSS API and AWS integration patterns (Bedrock, Lambda, MCP, security)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# CDSS API and AWS Patterns
+
+## Regions, Networking, and Compliance
+- Use India regions (e.g., `ap-south-1`) for all **patient data** to meet data‑localization requirements.
+- Keep CDSS services inside private subnets with controlled egress; expose only API Gateway / ALB to the internet.
+- Enforce TLS everywhere; no plaintext patient data over the wire.
+
+## Bedrock
+- Use `bedrock-runtime` client for model invocation; for agents, use Bedrock Agents APIs (InvokeAgent, etc.) behind MCP tools when appropriate.
+- Send structured JSON prompts; **never** parse medical content with ad‑hoc regex when a schema can be used.
+- Parse and validate model output with Pydantic before use; fail closed on validation errors.
+- Handle `ValidationException` (model not enabled) and `AccessDeniedException` explicitly and log with correlation IDs—not raw PHI.
+
+## Lambda and MCP Servers
+- Attach IAM execution roles; **no access keys** or long‑lived credentials in code or config.
+- For HTTP/Lambda APIs, return the correct API Gateway proxy format: `{"statusCode": int, "body": str, "headers": {...}}` with `Content-Type: application/json`.
+- Read non‑secret config from environment variables; fetch secrets (DB passwords, third‑party keys) from Secrets Manager or Parameter Store at runtime.
+- Design MCP handlers as thin adapters over well‑tested domain services (Patient, Surgery, Resource, Scheduling, Engagement).
+
+## Boto3 and AWS SDK Usage
+- Create clients with explicit `region_name` from env/config; do not rely on implicit defaults.
+- Prefer `client` over `resource` for Bedrock and other newer services.
+- Use paginators for list operations and enforce explicit timeouts/retries; avoid unbounded loops.
+
+## Logging and Observability
+- Log **what happened** and correlation IDs, not full medical records.
+- Include `patient_id` and `doctor_id` only when necessary and in hashed or truncated form where possible.
+- Emit metrics for:
+  - Bedrock latency and error rates
+  - MCP/tool failures
+  - Critical clinical events (e.g., emergency alerts, failed schedule creation)

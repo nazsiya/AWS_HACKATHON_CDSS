@@ -1,0 +1,437 @@
+openapi: 3.0.3
+info:
+  title: Emergency Medical Triage API
+  description: |
+    Backend API for triage assessment, hospital matching, and routing/directions.
+    Used by mobile and web frontends. All POST endpoints (except health) require
+    Cognito Id Token in `Authorization: Bearer <token>`.
+  version: 1.0.0
+  contact:
+    name: Backend Team
+
+servers:
+  - url: https://vrxlwtzfff.execute-api.us-east-1.amazonaws.com/dev
+    description: Dev (replace with your API Gateway URL from Terraform / load_api_config)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Liveness check; no authentication required.
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: API is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /triage:
+    post:
+      summary: Triage assessment
+      description: |
+        Submit symptoms and optional vitals; returns severity, recommendations, and session_id.
+        Uses Triage AgentCore. When Eka MCP is enabled (Gateway env on triage runtime), the model
+        can call search_indian_medications and search_treatment_protocols. To get Indian drug
+        brands in recommendations, include a symptom like "patient wants Indian paracetamol brands".
+        To get treatment protocol steps (e.g. ICMR-style), ask e.g. "ORS and dehydration protocol"
+        or "treatment protocol for fever". See docs/backend/TESTING-Gateway-Eka.md for full test cases.
+      operationId: postTriage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageRequest'
+            examples:
+              standard:
+                summary: Standard triage (chest pain)
+                value:
+                  symptoms: ["chest pain", "shortness of breath"]
+                  vitals: { heart_rate: 110, blood_pressure_systolic: 140 }
+                  age_years: 55
+                  sex: "M"
+              eka_medications:
+                summary: Eka – Indian drug brands
+                value:
+                  symptoms: ["fever", "patient wants Indian paracetamol brands"]
+                  age_years: 35
+              eka_protocols:
+                summary: Eka – treatment protocol
+                value:
+                  symptoms: ["acute diarrhoea", "ORS and dehydration protocol"]
+      responses:
+        '200':
+          description: Triage result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageResponse'
+              examples:
+                standard:
+                  summary: High severity triage
+                  value:
+                    severity: high
+                    confidence: 0.82
+                    recommendations:
+                      - "Activate emergency transport immediately"
+                      - "Start IV access and cardiac monitoring"
+                    force_high_priority: true
+                    safety_disclaimer: "This is AI-assisted guidance. Seek professional medical care."
+                    session_id: "550e8400-e29b-41d4-a716-446655440000"
+                eka_medications:
+                  summary: Eka – Indian brands in recommendations
+                  value:
+                    severity: low
+                    confidence: 0.7
+                    recommendations:
+                      - "Monitor temperature regularly"
+                      - "Common Indian brands: Crocin, Calpol, Dolo, Paracip"
+                      - "Seek care if fever persists >3 days"
+                    force_high_priority: true
+                    safety_disclaimer: "This is AI-assisted guidance. Seek professional medical care."
+                    session_id: "a96a373c-0510-40f1-9f30-6b0b2b1d34ff"
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid token
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hospitals:
+    post:
+      summary: Hospital recommendations
+      description: |
+        Get hospital list for a given severity and recommendations.
+        When patient_location_lat/lon are sent, each hospital may include distance_km,
+        duration_minutes, and directions_url (Hospital Matcher agent + get_route/maps).
+      operationId: postHospitals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HospitalsRequest'
+            examples:
+              no_location:
+                summary: Without patient location
+                value:
+                  severity: high
+                  recommendations: ["Emergency department"]
+                  limit: 3
+              with_location:
+                summary: With patient location (returns distance_km, directions_url per hospital)
+                value:
+                  severity: high
+                  recommendations: ["Emergency department"]
+                  limit: 2
+                  patient_location_lat: 12.97
+                  patient_location_lon: 77.59
+      responses:
+        '200':
+          description: List of hospitals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HospitalsResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid token
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Gateway timeout (e.g. many hospitals with patient location)
+
+  /route:
+    post:
+      summary: Get directions
+      description: |
+        Get driving directions between origin and destination. Returns distance_km,
+        duration_minutes, and directions_url (Google Maps link). Route Lambda calls
+        Gateway maps-target tool (Google Maps Routes API).
+      operationId: postRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteRequest'
+            examples:
+              coordinates:
+                summary: Origin and destination as lat/lon
+                value:
+                  origin: { lat: 12.97, lon: 77.59 }
+                  destination: { lat: 12.8967, lon: 77.5982 }
+              addresses:
+                summary: Origin and destination as addresses
+                value:
+                  origin: { address: "MG Road, Bangalore" }
+                  destination: { address: "Apollo Hospital, Bannerghatta Road, Bangalore" }
+      responses:
+        '200':
+          description: Route result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteResponse'
+        '400':
+          description: Invalid body (e.g. missing origin/destination, invalid lat/lon)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid token
+        '500':
+          description: Route failed (Gateway or maps Lambda)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Gateway not configured (run setup_agentcore_gateway.py)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito Id Token from RMP sign-in
+
+  schemas:
+    TriageRequest:
+      type: object
+      required:
+        - symptoms
+      properties:
+        symptoms:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 500
+        vitals:
+          type: object
+          additionalProperties:
+            type: number
+          description: e.g. heart_rate, bp, spo2, temp_c
+        age_years:
+          type: integer
+          minimum: 0
+          maximum: 150
+        sex:
+          type: string
+        submitted_by:
+          type: string
+          maxLength: 256
+        session_id:
+          type: string
+          maxLength: 256
+          description: Reuse for /hospitals and /route (min 33 chars for AgentCore)
+        patient_id:
+          type: string
+          maxLength: 256
+
+    TriageResponse:
+      type: object
+      required:
+        - severity
+        - confidence
+        - recommendations
+      properties:
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        recommendations:
+          type: array
+          items:
+            type: string
+          maxItems: 30
+          description: May include Indian drug brands or protocol steps when Eka prompts used
+        force_high_priority:
+          type: boolean
+          default: false
+        safety_disclaimer:
+          type: string
+          nullable: true
+        session_id:
+          type: string
+          nullable: true
+        id:
+          type: string
+          format: uuid
+          description: Present when triage was persisted to DB
+
+    HospitalsRequest:
+      type: object
+      required:
+        - severity
+        - recommendations
+      properties:
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        recommendations:
+          type: array
+          items:
+            type: string
+          maxItems: 100
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+        session_id:
+          type: string
+          maxLength: 256
+        patient_id:
+          type: string
+          maxLength: 256
+        triage_assessment_id:
+          type: string
+          maxLength: 64
+        patient_location_lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        patient_location_lon:
+          type: number
+          minimum: -180
+          maximum: 180
+
+    MatchedHospital:
+      type: object
+      required:
+        - hospital_id
+        - name
+        - match_score
+      properties:
+        hospital_id:
+          type: string
+        name:
+          type: string
+        match_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        match_reasons:
+          type: array
+          items:
+            type: string
+        estimated_minutes:
+          type: integer
+          nullable: true
+        specialties:
+          type: array
+          items:
+            type: string
+        distance_km:
+          type: number
+          nullable: true
+        duration_minutes:
+          type: number
+          nullable: true
+        directions_url:
+          type: string
+          nullable: true
+          description: Google Maps URL when patient location was sent
+
+    HospitalsResponse:
+      type: object
+      required:
+        - hospitals
+      properties:
+        hospitals:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchedHospital'
+        safety_disclaimer:
+          type: string
+          nullable: true
+
+    RouteRequest:
+      type: object
+      required:
+        - origin
+        - destination
+      properties:
+        origin:
+          $ref: '#/components/schemas/LocationInput'
+        destination:
+          $ref: '#/components/schemas/LocationInput'
+
+    LocationInput:
+      type: object
+      description: Either lat+lon or address (address max 500 chars)
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          minimum: -180
+          maximum: 180
+        address:
+          type: string
+          maxLength: 500
+
+    RouteResponse:
+      type: object
+      properties:
+        distance_km:
+          type: number
+          nullable: true
+        duration_minutes:
+          type: number
+          nullable: true
+        directions_url:
+          type: string
+          nullable: true
+        stub:
+          type: boolean
+          description: true when Google Maps not configured
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
