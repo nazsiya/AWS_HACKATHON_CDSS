@@ -6,6 +6,10 @@ import { useState, useEffect } from 'react';
 import { config, isMockMode } from '../../api/config';
 
 export default function ApiHealthBanner() {
+  // Suppress this warning in live mode. We only want it in mock mode
+  // or when explicitly configured for local troubleshooting.
+  if (!isMockMode()) return null;
+
   const [dbStatus, setDbStatus] = useState(null); // 'connected' | 'unavailable' | null (loading/not checked)
   const [dismissed, setDismissed] = useState(false);
 

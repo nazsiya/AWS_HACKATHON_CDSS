@@ -806,13 +806,13 @@
     ],
     "Content": {
      "S3Bucket": "cdk-hnb659fds-assets-746412758276-ap-south-1",
-     "S3Key": "02dfcba907598a692a90c4d2cbe5bcc3d29ea3eae6841adcffaec97a4dbac990.zip"
+     "S3Key": "db7172b816c12432e7781ebac85416edde29c3238c9180e984491672b7823c6f.zip"
     },
     "Description": "Shared utilities for CDSS agents"
    },
    "Metadata": {
     "aws:cdk:path": "CdssStack/SharedLayer/Resource",
-    "aws:asset:path": "asset.02dfcba907598a692a90c4d2cbe5bcc3d29ea3eae6841adcffaec97a4dbac990",
+    "aws:asset:path": "asset.db7172b816c12432e7781ebac85416edde29c3238c9180e984491672b7823c6f",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Content"
    }
@@ -1029,6 +1029,26 @@
            }
           ]
          }
+        ]
+       ]
+      },
+      "DB_HOST": {
+       "Fn::GetAtt": [
+        "CdssDatabase2BA45398",
+        "Endpoint.Address"
+       ]
+      },
+      "DB_PORT": "5432",
+      "DB_NAME": "cdssdb",
+      "DB_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+         },
+         ":SecretString:username::}}"
         ]
        ]
       }
@@ -1296,6 +1316,26 @@
          }
         ]
        ]
+      },
+      "DB_HOST": {
+       "Fn::GetAtt": [
+        "CdssDatabase2BA45398",
+        "Endpoint.Address"
+       ]
+      },
+      "DB_PORT": "5432",
+      "DB_NAME": "cdssdb",
+      "DB_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+         },
+         ":SecretString:username::}}"
+        ]
+       ]
       }
      }
     },
@@ -1561,6 +1601,26 @@
          }
         ]
        ]
+      },
+      "DB_HOST": {
+       "Fn::GetAtt": [
+        "CdssDatabase2BA45398",
+        "Endpoint.Address"
+       ]
+      },
+      "DB_PORT": "5432",
+      "DB_NAME": "cdssdb",
+      "DB_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+         },
+         ":SecretString:username::}}"
+        ]
+       ]
       }
      }
     },
@@ -1800,7 +1860,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-746412758276-ap-south-1",
-     "S3Key": "0eca70f1b9cd08f4b95047ec7e19bffabc3c78cd596e09254595a7b9823ef8ac.zip"
+     "S3Key": "01a1690991bce75eb7b33f83140ab62b1fb26ed1501b11a506a3786e3c8239f6.zip"
     },
     "Environment": {
      "Variables": {
@@ -1856,6 +1916,26 @@
          }
         ]
        ]
+      },
+      "DB_HOST": {
+       "Fn::GetAtt": [
+        "CdssDatabase2BA45398",
+        "Endpoint.Address"
+       ]
+      },
+      "DB_PORT": "5432",
+      "DB_NAME": "cdssdb",
+      "DB_USER": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+         },
+         ":SecretString:username::}}"
+        ]
+       ]
       }
      }
     },
@@ -1902,7 +1982,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "CdssStack/DashboardFunction/Resource",
-    "aws:asset:path": "asset.0eca70f1b9cd08f4b95047ec7e19bffabc3c78cd596e09254595a7b9823ef8ac",
+    "aws:asset:path": "asset.01a1690991bce75eb7b33f83140ab62b1fb26ed1501b11a506a3786e3c8239f6",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -2576,7 +2656,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31S227bMAz9lr4rWpegwF7tpCsC7GLYRV4LWuZcNbZkiFSCwPC/D5Jv6R72xMPDQ/Gmrfy6+yYfH+BKG1WdN40uZV8wqLPY/zEZOGiR0Qm40luPaiv7U6dC6JTtRebLRqvClwY5cCvKrWd8hbLBlV+5hMgqDaytWcQBPB+zYH4BvwDjFW4ic/oCjOvDR8PoDC6CsZPJS5hBvbdoWBSovNN8e3HWd7GH/xJHUzskGoSrSPYHYCiBcN94CsOP5ZfMQ3pPzOIClRt7PKRzYnSOhhiMwkFQlFALBmp0sh+7CFmjeQVXI99NsQj+jQyiuhlobVXKfllzBINooC0rkP0PuKE7oaNpzZ/8796oef/3OEPXagqSQdDuDYiQSSbBCNrJ1KszcgqEQkMr+9yOpaPNbKNVPMmIBoEXNEyyfw429RSPPOPcT7k+dA2drscryj5H4qTTMbjCRCnrDYsDdo29zfu58wqGevxvEeRI1juFsdufyO+2CsEJzdGpSMTDsNJx5PCQNnXQ/Pbcef6kFsZWKD/oy2X7JJ/k48MHab1x3rBuUeaj/QtFsdpTYQMAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31STW/bMAz9Lb0rWpvssKuddEWAfRh2kWtBy5yrxpYMkUpgGP7vg2Q7TnfYiY+Pj+KXtvJp900+PsCVNqo6bxpdyqFgUGex/2MycNAioxNwpbcB1VYOp06F0Cnbi8yXjVaFLw1y4FaUW8/4CmWDK79yCZFVGlhbcxMH8HzMgvkF/AKMV+hF5vQFGNeHj4bRGbwJpk5mL2EG9d6iYVGg8k5z/+Ks72IP/yWOpnZINApXkRwOwFAC4b7xFIafyt8yD+k9sYgLVG7q8ZAuidE5GmIwCkdBUUItGKjRyWHqImRN5hVcjXw3xU3wb2QUVW+gtVUph9uaIxhFA21ZgRx+QI/uhI7mNX/yv3ujlv3f4wxdqylIRkG7NyBCJpkEI2gnU6/OyCkQCg2tHHI7lY42s41W8SQTGgVe0DDJ4TnY1FM88oJzP+f60DV0up6uKIcciZNOx+AKE6WsNywO2DW2X/Zz5xUM9fTfIsiRrHcKY7c/kd9tFYIzWqJzkYjHcaXjyOEhbeqg+e258/xJLYytUH7Ql8v2q3zayceHD9J647xh3aLMJ/sXc/HiUWIDAAA="
    },
    "Metadata": {
     "aws:cdk:path": "CdssStack/CDKMetadata/Default"

@@ -1220,7 +1220,7 @@
                     ],
                     "content": {
                       "s3Bucket": "cdk-hnb659fds-assets-746412758276-ap-south-1",
-                      "s3Key": "02dfcba907598a692a90c4d2cbe5bcc3d29ea3eae6841adcffaec97a4dbac990.zip"
+                      "s3Key": "db7172b816c12432e7781ebac85416edde29c3238c9180e984491672b7823c6f.zip"
                     },
                     "description": "Shared utilities for CDSS agents"
                   }
@@ -1507,6 +1507,26 @@
                                   }
                                 ]
                               }
+                            ]
+                          ]
+                        },
+                        "DB_HOST": {
+                          "Fn::GetAtt": [
+                            "CdssDatabase2BA45398",
+                            "Endpoint.Address"
+                          ]
+                        },
+                        "DB_PORT": "5432",
+                        "DB_NAME": "cdssdb",
+                        "DB_USER": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{{resolve:secretsmanager:",
+                              {
+                                "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+                              },
+                              ":SecretString:username::}}"
                             ]
                           ]
                         }
@@ -1830,6 +1850,26 @@
                               }
                             ]
                           ]
+                        },
+                        "DB_HOST": {
+                          "Fn::GetAtt": [
+                            "CdssDatabase2BA45398",
+                            "Endpoint.Address"
+                          ]
+                        },
+                        "DB_PORT": "5432",
+                        "DB_NAME": "cdssdb",
+                        "DB_USER": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{{resolve:secretsmanager:",
+                              {
+                                "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+                              },
+                              ":SecretString:username::}}"
+                            ]
+                          ]
                         }
                       }
                     },
@@ -2149,6 +2189,26 @@
                                   }
                                 ]
                               }
+                            ]
+                          ]
+                        },
+                        "DB_HOST": {
+                          "Fn::GetAtt": [
+                            "CdssDatabase2BA45398",
+                            "Endpoint.Address"
+                          ]
+                        },
+                        "DB_PORT": "5432",
+                        "DB_NAME": "cdssdb",
+                        "DB_USER": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{{resolve:secretsmanager:",
+                              {
+                                "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+                              },
+                              ":SecretString:username::}}"
                             ]
                           ]
                         }
@@ -2481,7 +2541,7 @@
                   "aws:cdk:cloudformation:props": {
                     "code": {
                       "s3Bucket": "cdk-hnb659fds-assets-746412758276-ap-south-1",
-                      "s3Key": "0eca70f1b9cd08f4b95047ec7e19bffabc3c78cd596e09254595a7b9823ef8ac.zip"
+                      "s3Key": "01a1690991bce75eb7b33f83140ab62b1fb26ed1501b11a506a3786e3c8239f6.zip"
                     },
                     "environment": {
                       "variables": {
@@ -2535,6 +2595,26 @@
                                   }
                                 ]
                               }
+                            ]
+                          ]
+                        },
+                        "DB_HOST": {
+                          "Fn::GetAtt": [
+                            "CdssDatabase2BA45398",
+                            "Endpoint.Address"
+                          ]
+                        },
+                        "DB_PORT": "5432",
+                        "DB_NAME": "cdssdb",
+                        "DB_USER": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{{resolve:secretsmanager:",
+                              {
+                                "Ref": "CdssDatabaseSecretAttachment41E8FE5C"
+                              },
+                              ":SecretString:username::}}"
                             ]
                           ]
                         }

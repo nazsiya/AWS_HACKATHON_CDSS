@@ -9,6 +9,21 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import * as path from 'path';
+import * as fs from 'fs';
+
+function copyDirContents(srcDir: string, destDir: string): void {
+    // Copy the *contents* of `srcDir` into `destDir` (not the `srcDir` folder itself),
+    // so Lambda handler files remain at the bundle root.
+    for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+        const src = path.join(srcDir, entry.name);
+        const dest = path.join(destDir, entry.name);
+        if (entry.isDirectory()) {
+            fs.cpSync(src, dest, { recursive: true });
+        } else {
+            fs.copyFileSync(src, dest);
+        }
+    }
+}
 
 export class CdssStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -121,6 +136,10 @@ export class CdssStack extends cdk.Stack {
         // ----------------------------------------------------------------
         const dbEnv = {
             RDS_CONFIG_SECRET_NAME: rdsSecret.secretName,
+            DB_HOST: cluster.clusterEndpoint.hostname,
+            DB_PORT: '5432',
+            DB_NAME: 'cdssdb',
+            DB_USER: rdsSecret.secretValueFromJson('username').unsafeUnwrap(),
         };
 
         // ----------------------------------------------------------------
@@ -173,10 +192,32 @@ export class CdssStack extends cdk.Stack {
         // 11. Dashboard REST Lambda
         //     Uses the SAME DB config contract as every other Lambda.
         // ----------------------------------------------------------------
+        // NOTE: Docker-based bundling requires a local Docker install, which may
+        // not exist in the deploy environment. Instead, we create a small staging
+        // directory at synth-time and copy:
+        //   - backend/api/rest/*  -> bundle root
+        //   - src/cdss/*         -> bundle root/cdss/
+        // so `from cdss.config.secrets import ...` works in production.
+        const dashboardRestSrcDir = path.join(__dirname, '../../backend/api/rest');
+        const dashboardBundleDir = path.join(__dirname, '..', 'lambda-bundle', 'dashboard');
+        const cdssSrcDir = path.join(__dirname, '../../src/cdss');
+
+        fs.rmSync(dashboardBundleDir, { recursive: true, force: true });
+        fs.mkdirSync(dashboardBundleDir, { recursive: true });
+        copyDirContents(dashboardRestSrcDir, dashboardBundleDir);
+        fs.cpSync(cdssSrcDir, path.join(dashboardBundleDir, 'cdss'), { recursive: true });
+
+        const { execSync } = require('child_process');
+        execSync(
+            'pip install psycopg2-binary --target ' + dashboardBundleDir +
+            ' --platform manylinux2014_x86_64 --implementation cp --python-version 3.11 --only-binary=:all: --quiet',
+            { stdio: 'inherit' }
+        );
+
         const dashboardFn = new lambda.Function(this, 'DashboardFunction', {
             runtime: lambda.Runtime.PYTHON_3_11,
             handler: 'dashboard_handler.lambda_handler',
-            code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/api/rest')),
+            code: lambda.Code.fromAsset(dashboardBundleDir),
             vpc,
             vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
             securityGroups: [lambdaSecurityGroup],
