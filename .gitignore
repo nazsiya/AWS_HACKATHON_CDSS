@@ -97,3 +97,12 @@ docs_archive/
 
 # Local file used for git filter-repo (never commit)
 .git-credentials-replacements.txt
+
+infra/cdk.out/
+infra/lambda-bundle/
+infra/lambda-code/
+infra/lambda-code.zip
+infra/payload.json
+infra/response.json
+infra/seed_payload.json
+infra/seed_response.json
