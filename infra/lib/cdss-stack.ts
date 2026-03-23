@@ -251,6 +251,34 @@ export class CdssStack extends cdk.Stack {
         // GET /health  — routes to dashboardFn which should call SELECT 1
         api.root.addResource('health').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
 
+        const apiV1 = api.root.addResource('api').addResource('v1');
+
+        const patients = apiV1.addResource('patients');
+        patients.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        patients.addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
+        const patientById = patients.addResource('{id}');
+        patientById.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        patientById.addMethod('PUT', new apigateway.LambdaIntegration(dashboardFn));
+
+        apiV1.addResource('surgeries').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+
+        const appointments = apiV1.addResource('appointments');
+        appointments.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        appointments.addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
+
+        const medications = apiV1.addResource('medications');
+        medications.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        medications.addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
+
+        apiV1.addResource('schedule').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+
+        apiV1.addResource('resources').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+
+        const consultations = apiV1.addResource('consultations');
+        consultations.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        consultations.addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
+        consultations.addResource('start').addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
+
         // ----------------------------------------------------------------
         // 13. CloudFormation Outputs
         // ----------------------------------------------------------------

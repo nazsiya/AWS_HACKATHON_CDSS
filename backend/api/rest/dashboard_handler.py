@@ -52,6 +52,11 @@ def lambda_handler(event, context):
     """Aggregates stats, patient queue, and alerts for the dashboard."""
     resource = event.get('resource', '')
 
+    # Route /api/v1/* to database_crud handler
+    if resource.startswith('/api/v1/') or resource.startswith('/api/'):
+        import database_crud
+        return database_crud.lambda_handler(event, context)
+
     doctor_id = (event.get("queryStringParameters") or {}).get("doctor_id", "DR-1001")
     
     conn = get_db_connection()
