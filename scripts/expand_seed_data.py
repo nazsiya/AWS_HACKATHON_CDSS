@@ -51,32 +51,45 @@ def generate_doctor(i):
     
     return (doctor_id, full_name, spec, dept, email, f"+91 {random.randint(60000, 99999)} {random.randint(10000, 99999)}")
 
+def _row_exists(cur, table: str, pk_col: str, pk_val) -> bool:
+    cur.execute(f"SELECT 1 FROM {table} WHERE {pk_col} = %s LIMIT 1", (pk_val,))
+    return cur.fetchone() is not None
+
+
 def expand_db():
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    print("Adding 5 more doctors...")
+
+    print("Adding up to 5 more doctors (skips rows that already exist)...")
+    doctors_added = 0
     for i in range(5):
         doc = generate_doctor(i)
+        if _row_exists(cur, "doctors", "doctor_id", doc[0]):
+            continue
         cur.execute(
             "INSERT INTO doctors (doctor_id, full_name, specialization, department, email, phone_number) VALUES (%s, %s, %s, %s, %s, %s)",
-            doc
+            doc,
         )
-    
-    print("Adding 20 more patients...")
+        doctors_added += 1
+
+    print("Adding up to 20 more patients with vitals (skips rows that already exist)...")
+    patients_added = 0
     for i in range(20):
         pat = generate_patient(i)
+        if _row_exists(cur, "patients", "patient_id", pat[0]):
+            continue
         cur.execute(
             "INSERT INTO patients (patient_id, abdm_id, full_name, date_of_birth, gender, blood_group, phone_number, severity_level, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            pat
+            pat,
         )
-        
-        # Add vitals for each new patient
         cur.execute(
             "INSERT INTO vitals_history (patient_id, heart_rate, bp_systolic, bp_diastolic, spo2_percent, temperature_f) VALUES (%s, %s, %s, %s, %s, %s)",
-            (pat[0], random.randint(60, 100), random.randint(110, 140), random.randint(70, 90), random.randint(94, 100), random.uniform(97.0, 99.5))
+            (pat[0], random.randint(60, 100), random.randint(110, 140), random.randint(70, 90), random.randint(94, 100), random.uniform(97.0, 99.5)),
         )
-    
+        patients_added += 1
+
+    print(f"Done: {doctors_added} doctors inserted, {patients_added} patients inserted.")
+
     conn.commit()
     cur.close()
     conn.close()

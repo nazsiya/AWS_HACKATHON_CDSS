@@ -38,6 +38,7 @@ if (-not $StaffCfId)   { $StaffCfId   = Get-TerraformOutput "staff_app_cf_id" }
 if (-not $PatientCfId) { $PatientCfId = Get-TerraformOutput "patient_portal_cf_id" }
 $CognitoPoolId = Get-TerraformOutput "cognito_user_pool_id"
 $CognitoStaffClientId = Get-TerraformOutput "cognito_staff_client_id"
+$CognitoPatientClientId = Get-TerraformOutput "cognito_patient_client_id"
 $CognitoRegion = "ap-south-1"
 
 if (-not $ApiUrl) {
@@ -85,6 +86,11 @@ if (-not $StaffOnly -and $PatientBucket) {
     try {
         [Environment]::SetEnvironmentVariable("VITE_API_URL", $ApiUrl, "Process")
         [Environment]::SetEnvironmentVariable("VITE_USE_MOCK", "false", "Process")
+        if ($CognitoPoolId -and $CognitoPatientClientId) {
+            [Environment]::SetEnvironmentVariable("VITE_COGNITO_USER_POOL_ID", $CognitoPoolId, "Process")
+            [Environment]::SetEnvironmentVariable("VITE_COGNITO_CLIENT_ID", $CognitoPatientClientId, "Process")
+            [Environment]::SetEnvironmentVariable("VITE_COGNITO_REGION", $CognitoRegion, "Process")
+        }
         npm run build 2>&1
         if ($LASTEXITCODE -ne 0) { throw "Patient-dashboard build failed" }
     } finally { Pop-Location }
