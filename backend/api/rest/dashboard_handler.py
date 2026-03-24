@@ -50,6 +50,20 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     """Aggregates stats, patient queue, and alerts for the dashboard."""
+
+    # Handle CORS preflight (API Gateway OPTIONS requests)
+    if event.get('httpMethod') == 'OPTIONS':
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": ""
+        }
+
     resource = event.get('resource', '')
 
     # Route /api/v1/* to database_crud handler

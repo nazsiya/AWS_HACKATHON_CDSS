@@ -8,9 +8,17 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from cdss.db.session import get_session
-from cdss.db.models import AuditLog
 from .session_manager import SessionManager
+
+# cdss.db.* depends on SQLAlchemy. In the current agent Lambda deployment we may not
+# include the full Python dependencies, so treat missing DB dependencies as
+# best-effort audit logging (do not crash the entire agent).
+try:
+    from cdss.db.session import get_session
+    from cdss.db.models import AuditLog
+except Exception:
+    get_session = None
+    AuditLog = None
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +47,8 @@ class AuditLogger:
         """
         # 1. Log to RDS for formal audit (DISHA compliance)
         try:
+            if get_session is None or AuditLog is None:
+                raise RuntimeError("Audit DB dependencies unavailable (sqlalchemy/cdss.db).")
             with get_session() as session:
                 audit_entry = AuditLog(
                     user_id=user_id,

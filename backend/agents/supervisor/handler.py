@@ -11,6 +11,11 @@ import sys
 # Add the lambda root to sys.path to import shared utilities
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Lambda Layers are mounted under /opt. Add them to sys.path so the `shared`
+# package provided via the SharedLayer is importable at runtime.
+sys.path.append('/opt')
+sys.path.append('/opt/python')
+
 from shared import (
     BedrockClient,
     SessionManager,
@@ -104,19 +109,19 @@ ROUTING_TOOLS = [
     }
 ]
 
+TARGET_AGENT_MAP = {
+    "route_to_patient_agent": "patient",
+    "route_to_surgery_planning_agent": "surgery_planning",
+    "route_to_resource_agent": "resource",
+    "route_to_scheduling_agent": "scheduling",
+    "route_to_engagement_agent": "engagement",
+}
+
 def handle_tool_call(tool_name, tool_input, session_id):
     """Execute routing logic by publishing events to the bus."""
     logger.info(f"Executing tool: {tool_name} with input: {tool_input}")
     
-    target_agent_map = {
-        "route_to_patient_agent": "patient",
-        "route_to_surgery_planning_agent": "surgery_planning",
-        "route_to_resource_agent": "resource",
-        "route_to_scheduling_agent": "scheduling",
-        "route_to_engagement_agent": "engagement"
-    }
-    
-    target_agent = target_agent_map.get(tool_name)
+    target_agent = TARGET_AGENT_MAP.get(tool_name)
     if not target_agent:
         return f"Error: Unknown tool {tool_name}"
     
@@ -152,7 +157,20 @@ def lambda_handler(event, context):
     logger.info(f"Received event: {json.dumps(event)}")
     
     # Standardize input from API Gateway or Direct Call
-    body = json.loads(event.get("body", "{}")) if "body" in event else event
+    if "body" in event:
+        raw_body = event.get("body")
+        if isinstance(raw_body, dict):
+            body = raw_body
+        elif raw_body is None:
+            body = {}
+        else:
+            # API Gateway normally provides `body` as a JSON string.
+            try:
+                body = json.loads(raw_body or "{}")
+            except Exception:
+                return error_response("Invalid JSON body", 400)
+    else:
+        body = event
     
     doctor_id = body.get("doctor_id", "DR-DEFAULT")
     session_id = body.get("session_id")
@@ -208,7 +226,11 @@ def lambda_handler(event, context):
                 agent_name=AGENT_NAMES["supervisor"],
                 metadata={
                     "tool_use": len(tool_calls) > 0,
-                    "target_agents": [AGENT_NAMES[target_agent_map.get(t["name"])] for t in tool_calls if target_agent_map.get(t["name"])]
+                    "target_agents": [
+                        AGENT_NAMES[TARGET_AGENT_MAP.get(t["name"])]
+                        for t in tool_calls
+                        if TARGET_AGENT_MAP.get(t["name"])
+                    ],
                 }
             )
         })
