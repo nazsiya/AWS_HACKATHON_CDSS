@@ -37,6 +37,7 @@ export class CdssStack extends cdk.Stack {
             default: 'dev',
             description: 'Environment name (dev, staging, prod)',
         });
+        const agentEventBusName = `cdss-agent-bus-${envName.valueAsString}`;
 
         // ----------------------------------------------------------------
         // 1. Network Layer
@@ -119,9 +120,21 @@ export class CdssStack extends cdk.Stack {
         // 6. Shared Lambda Layer
         // ----------------------------------------------------------------
         const sharedLayer = new lambda.LayerVersion(this, 'SharedLayer', {
-            code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/agents/shared')),
+            // Package the parent directory so the layer contains `/opt/shared/...`
+            // and handlers can do `from shared import ...`.
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/agents')),
             compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
             description: 'Shared utilities for CDSS agents',
+        });
+
+        // ----------------------------------------------------------------
+        // 6b. CDSS package Layer
+        //     Agent Lambdas import `cdss.*` (e.g., audit logger uses `cdss.db.session`).
+        // ----------------------------------------------------------------
+        const cdssLayer = new lambda.LayerVersion(this, 'CdssPackageLayer', {
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../src')),
+            compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+            description: 'Shared CDSS Python package for agent Lambdas',
         });
 
         // ----------------------------------------------------------------
@@ -155,9 +168,10 @@ export class CdssStack extends cdk.Stack {
                 securityGroups: [lambdaSecurityGroup],
                 environment: {
                     SESSIONS_TABLE: sessionsTable.tableName,
+                    EVENT_BUS_NAME: agentEventBusName,
                     ...dbEnv,
                 },
-                layers: [sharedLayer],
+                layers: [sharedLayer, cdssLayer],
                 timeout: cdk.Duration.seconds(30),
             });
             fn.addToRolePolicy(bedrockPolicy);
@@ -179,7 +193,7 @@ export class CdssStack extends cdk.Stack {
         // 10. EventBus — Inter-Agent Communication
         // ----------------------------------------------------------------
         const eventBus = new events.EventBus(this, 'CdssEventBus', {
-            eventBusName: `cdss-agent-bus-${envName.valueAsString}`,
+            eventBusName: agentEventBusName,
         });
 
         new events.Rule(this, 'SupervisorToSubAgentRule', {
@@ -187,6 +201,9 @@ export class CdssStack extends cdk.Stack {
             eventPattern: { detailType: ['AgentActionRequested'] },
             targets: [new targets.LambdaFunction(patientAgent)],
         });
+
+        // Supervisor publishes routing events to EventBridge via EventPublisher.publish().
+        eventBus.grantPutEventsTo(supervisorAgent);
 
         // ----------------------------------------------------------------
         // 11. Dashboard REST Lambda
@@ -251,7 +268,16 @@ export class CdssStack extends cdk.Stack {
         // GET /health  — routes to dashboardFn which should call SELECT 1
         api.root.addResource('health').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
 
-        const apiV1 = api.root.addResource('api').addResource('v1');
+        const apiRoot = api.root.addResource('api');
+        const apiV1 = apiRoot.addResource('v1');
+
+        // POST /api/ai/summarize
+        const ai = apiRoot.addResource('ai');
+        ai.addResource('summarize').addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
+
+        // POST /api/v1/ai/summarize
+        const aiV1 = apiV1.addResource('ai');
+        aiV1.addResource('summarize').addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
 
         const patients = apiV1.addResource('patients');
         patients.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
@@ -260,7 +286,11 @@ export class CdssStack extends cdk.Stack {
         patientById.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
         patientById.addMethod('PUT', new apigateway.LambdaIntegration(dashboardFn));
 
-        apiV1.addResource('surgeries').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        const surgeries = apiV1.addResource('surgeries');
+        surgeries.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        const surgeryById = surgeries.addResource('{id}');
+        surgeryById.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+        surgeryById.addResource('analyse').addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
 
         const appointments = apiV1.addResource('appointments');
         appointments.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
@@ -278,6 +308,12 @@ export class CdssStack extends cdk.Stack {
         consultations.addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
         consultations.addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
         consultations.addResource('start').addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
+
+        // GET /api/v1/tasks
+        apiV1.addResource('tasks').addMethod('GET', new apigateway.LambdaIntegration(dashboardFn));
+
+        // POST /api/v1/activity
+        apiV1.addResource('activity').addMethod('POST', new apigateway.LambdaIntegration(dashboardFn));
 
         // ----------------------------------------------------------------
         // 13. CloudFormation Outputs

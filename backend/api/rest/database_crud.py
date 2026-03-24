@@ -140,6 +140,20 @@ def lambda_handler(event, context):
     Main entry point for CRUD operations.
     Supports: GET/PUT /patients, GET/PUT /doctors, GET/POST/PUT /inventory
     """
+
+    # Handle CORS preflight (API Gateway OPTIONS requests)
+    if event.get('httpMethod') == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+                'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+            },
+            'body': ''
+        }
+
     http_method = event.get('httpMethod')
     resource = event.get('resource', '')
     # Handle /api/v1/ prefix normalization
@@ -170,10 +184,7 @@ def lambda_handler(event, context):
     
     conn = get_db_connection()
     if not conn:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': 'Database connection failed'})
-        }
+        return success_response({'error': 'Database connection failed'}, 500)
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -193,7 +204,7 @@ def lambda_handler(event, context):
                         """, (patient_id,))
                         row = cur.fetchone()
                         if not row:
-                            return {'statusCode': 404, 'body': json.dumps({'error': 'Patient not found'})}
+                            return success_response({'error': 'Patient not found'}, 404)
                         result = transform_row('/patients', row)
                         # Add temperature
                         result['vitals']['temp'] = float(row['temperature_f']) if row.get('temperature_f') else None
@@ -264,6 +275,51 @@ def lambda_handler(event, context):
                     )
                     conn.commit()
                     return success_response({'message': 'Patient updated'})
+
+            # --- TASKS ---
+            elif resource == '/tasks':
+                if http_method == 'GET':
+                    # UI expects: { tasks: [{ id, priority, taskType, patientName }] }
+                    return success_response({'tasks': []})
+
+            # --- ACTIVITY ---
+            elif resource == '/activity':
+                if http_method == 'POST':
+                    # Best-effort acknowledgement (UI keeps local history).
+                    return success_response({'ok': True})
+
+            # --- AI SUMMARIZE ---
+            elif resource in ['/ai/summarize', '/api/ai/summarize']:
+                if http_method == 'POST':
+                    raw_body = event.get('body', '') or ''
+                    parsed = {}
+                    if isinstance(raw_body, str) and raw_body.strip():
+                        try:
+                            parsed = json.loads(raw_body)
+                        except Exception:
+                            parsed = {}
+                    elif isinstance(raw_body, dict):
+                        parsed = raw_body
+
+                    text = ''
+                    if isinstance(parsed, dict):
+                        text = str(parsed.get('text') or parsed.get('message') or '').strip()
+                    if not text and isinstance(raw_body, str):
+                        # Fallback: treat the raw request body as text.
+                        text = raw_body.strip()
+
+                    if not text:
+                        return success_response(
+                            {'summary': '', 'safety_disclaimer': 'AI is for clinical support. Not medical advice.'},
+                        )
+                    snippet = text[:220]
+                    suffix = '…' if len(text) > 220 else ''
+                    return success_response(
+                        {
+                            'summary': f"Summary of notes: {snippet}{suffix}",
+                            'safety_disclaimer': 'AI is for clinical support and educational use only. Not medical advice.',
+                        }
+                    )
 
             # --- DOCTORS ---
             elif resource == '/doctors' or resource == '/doctors/{id}':
@@ -373,6 +429,12 @@ def lambda_handler(event, context):
                         })
                     return success_response({'surgeries': surgeries})
 
+            # --- SURGERY ANALYSE (AI pre-op planning) ---
+            elif resource == '/surgeries/{id}/analyse':
+                if http_method == 'POST':
+                    # UI expects { requiredInstruments: [string], checklist: [string|{text,completed}] }
+                    return success_response({'requiredInstruments': [], 'checklist': []})
+
             # --- CONSULTATIONS ---
             elif resource == '/consultations' or resource == '/consultations/start':
                 if http_method == 'POST':
@@ -381,7 +443,7 @@ def lambda_handler(event, context):
                     doctor_id = body.get('doctor_id')
                     
                     if not patient_id:
-                        return {'statusCode': 400, 'body': json.dumps({'error': 'patient_id is required'})}
+                        return success_response({'error': 'patient_id is required'}, 400)
                     
                     if resource == '/consultations/start':
                         # Update patient status to 'in-consultation'
@@ -517,19 +579,13 @@ def lambda_handler(event, context):
                         })
                     return success_response(items)
 
-            return {
-                'statusCode': 404,
-                'body': json.dumps({'error': f'Not Found: {resource}'})
-            }
+            return success_response({'error': f'Not Found: {resource}'}, 404)
 
     except Exception as e:
         import traceback
         print(f"Database error: {e}")
         traceback.print_exc()
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': str(e)})
-        }
+        return success_response({'error': str(e)}, 500)
     finally:
         conn.close()
 
