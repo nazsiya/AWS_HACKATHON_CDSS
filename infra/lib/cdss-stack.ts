@@ -189,6 +189,16 @@ export class CdssStack extends cdk.Stack {
         const surgeryAgent = createAgent('SurgeryPlanning', 'surgery_planning');
         // ... Repeat for other agents (OMITTED for brevity in this tech preview)
 
+        // Supervisor HTTP response can synchronously invoke Patient Lambda for summary UX (see supervisor/handler.py).
+        supervisorAgent.addEnvironment('PATIENT_AGENT_FUNCTION_NAME', patientAgent.functionName);
+        patientAgent.grantInvoke(supervisorAgent);
+        // Supervisor HTTP response can synchronously invoke SurgeryPlanning Lambda for conversational UX.
+        supervisorAgent.addEnvironment('SURGERY_AGENT_FUNCTION_NAME', surgeryAgent.functionName);
+        surgeryAgent.grantInvoke(supervisorAgent);
+        // Nested Bedrock calls (Supervisor + sync Patient) need more than 30s.
+        (supervisorAgent.node.defaultChild as lambda.CfnFunction).timeout = 120;
+        (patientAgent.node.defaultChild as lambda.CfnFunction).timeout = 90;
+
         // ----------------------------------------------------------------
         // 10. EventBus — Inter-Agent Communication
         // ----------------------------------------------------------------
@@ -204,6 +214,9 @@ export class CdssStack extends cdk.Stack {
 
         // Supervisor publishes routing events to EventBridge via EventPublisher.publish().
         eventBus.grantPutEventsTo(supervisorAgent);
+        // Some sub-agents (e.g., SurgeryPlanningAgent) also publish follow-up events/events for other workflows.
+        eventBus.grantPutEventsTo(patientAgent);
+        eventBus.grantPutEventsTo(surgeryAgent);
 
         // ----------------------------------------------------------------
         // 11. Dashboard REST Lambda

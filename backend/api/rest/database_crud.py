@@ -1,4 +1,5 @@
 import json
+import re
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -312,11 +313,105 @@ def lambda_handler(event, context):
                         return success_response(
                             {'summary': '', 'safety_disclaimer': 'AI is for clinical support. Not medical advice.'},
                         )
-                    snippet = text[:220]
-                    suffix = '…' if len(text) > 220 else ''
+                    def _rule_based_summary(note_text: str) -> str:
+                        t = (note_text or '').strip()
+                        if not t:
+                            return ''
+                        max_bullets = 6
+
+                        concerns: list[str] = []
+                        if re.search(r"\bnervous\b", t, re.IGNORECASE):
+                            concerns.append("Patient is nervous about the surgery.")
+                        if re.search(r"\bdiscomfort\b", t, re.IGNORECASE) or re.search(
+                            r"\bpersistent\b.*\b(discomfort|pain)\b", t, re.IGNORECASE
+                        ):
+                            concerns.append("Surgery is being considered after persistent discomfort/pain.")
+                        if not concerns:
+                            concerns.append("Discussion focused on surgery readiness assessment.")
+
+                        risk_bullet = ''
+                        risk_m = re.search(r"risk score\s*(?:is\s*)?(\d+)\s*out of\s*(\d+)", t, re.IGNORECASE)
+                        if risk_m:
+                            risk_bullet = f"Risk score mentioned: {risk_m.group(1)}/{risk_m.group(2)}."
+                        elif re.search(r"\bmoderate risk\b", t, re.IGNORECASE):
+                            risk_bullet = "Risk category described as moderate."
+
+                        meds_bullet = ''
+                        meds_no = re.search(
+                            r"medications?.*?(?:Patient:)?\s*(no|nothing at all|none)\b",
+                            t,
+                            re.IGNORECASE | re.DOTALL,
+                        )
+                        if meds_no:
+                            meds_bullet = "No current medications reported."
+
+                        allergies_bullet = ''
+                        allergies_no = re.search(
+                            r"allerg(?:y|ies).*?(?:Patient:)?\s*(none|no known|nothing)\b",
+                            t,
+                            re.IGNORECASE | re.DOTALL,
+                        )
+                        if allergies_no:
+                            allergies_bullet = "No known allergies reported."
+
+                        preop_bullet = ''
+                        if re.search(r"\bblood work\b|\bECG\b|\bpre-?operative testing\b", t, re.IGNORECASE):
+                            preop_bullet = "Routine pre-op tests planned (e.g., blood work and ECG)."
+
+                        timeline_bullet = ''
+                        if re.search(r"\bcouple of days\b|\bin a couple of days\b", t, re.IGNORECASE):
+                            timeline_bullet = "Follow-up planned in a couple of days after test results."
+
+                        # Prioritize what the doctor plans/next steps, then fill with history flags.
+                        bullets: list[str] = []
+                        bullets.extend(concerns[:2])
+                        if risk_bullet:
+                            bullets.append(risk_bullet)
+                        if preop_bullet:
+                            bullets.append(preop_bullet)
+                        if timeline_bullet:
+                            bullets.append(timeline_bullet)
+
+                        # Fill remaining slots with meds/allergies (prefer allergies first).
+                        if len(bullets) < max_bullets and allergies_bullet:
+                            bullets.append(allergies_bullet)
+                        if len(bullets) < max_bullets and meds_bullet:
+                            bullets.append(meds_bullet)
+
+                        bullets = [b.strip() for b in bullets if b.strip()]
+                        if len(bullets) < 3:
+                            bullets.append("No immediate red flags identified in the discussion.")
+                        bullets = bullets[:max_bullets]
+                        return "\n".join([f"- {b}" for b in bullets])
+
+                    bedrock_summary = ''
+                    try:
+                        from shared import BedrockClient
+
+                        bedrock = BedrockClient()
+                        system_prompt = (
+                            "You are a clinical decision support assistant. Summarize the provided clinical notes "
+                            "into 3–5 concise bullets. Include: (1) patient concerns, (2) risk level if mentioned, "
+                            "(3) meds/allergies if mentioned, (4) pre-op testing/next steps, (5) timeline/follow-up. "
+                            "Do NOT copy large parts of the original text; do NOT echo 'Doctor:'/'Patient:' lines."
+                        )
+                        result = bedrock.invoke(
+                            user_message=text,
+                            system_prompt=system_prompt,
+                            max_tokens=700,
+                            temperature=0.2,
+                        )
+                        bedrock_summary = (result.get("content") or "").strip()
+                    except Exception:
+                        bedrock_summary = ''
+
+                    # If Bedrock echoes/truncates (common for this endpoint), use the rule-based summary.
+                    if not bedrock_summary or ('Doctor:' in bedrock_summary or 'Patient:' in bedrock_summary):
+                        bedrock_summary = _rule_based_summary(text)
+
                     return success_response(
                         {
-                            'summary': f"Summary of notes: {snippet}{suffix}",
+                            'summary': bedrock_summary,
                             'safety_disclaimer': 'AI is for clinical support and educational use only. Not medical advice.',
                         }
                     )

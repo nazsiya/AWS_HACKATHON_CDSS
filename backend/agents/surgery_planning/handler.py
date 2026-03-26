@@ -10,6 +10,8 @@ import sys
 
 # Add the lambda root to sys.path to import shared utilities
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append('/opt')
+sys.path.append('/opt/python')
 
 from shared import (
     BedrockClient,
@@ -136,7 +138,17 @@ def handle_tool_call(tool_name, tool_input, session_id):
             status="classified",
             data=out,
         )
-        return json.dumps(out)
+        # Return a conversational summary (not raw JSON) for the chat UI.
+        risks = ", ".join(risk_factors) if risk_factors else "no explicit risk factors extracted"
+        return (
+            f"Surgery classification for {patient_id}:\n"
+            f"- Surgery type: {surgery_type}\n"
+            f"- Pre-op status: {out['pre_op_status']}\n"
+            f"- Risk factors: {risks}\n"
+            f"- Requires senior review: {'Yes' if out['requires_senior_review'] else 'No'}\n"
+            f"\n{out['checklist_flags'][0]}\n"
+            f"\nSafety disclaimer: {out['safety_disclaimer']}"
+        )
 
     elif tool_name == "generate_pre_op_checklist":
         # CDSS.mdc: checklist_flags, pre_op_status, requires_senior_review
@@ -165,7 +177,16 @@ def handle_tool_call(tool_name, tool_input, session_id):
             status="checklist_generated",
             data=checklist,
         )
-        return json.dumps(checklist)
+        items = checklist["checklist"]
+        numbered = "\n".join([f"- {x}" for x in items])
+        return (
+            f"Pre-op checklist for {patient_id} ({checklist['surgery']}):\n"
+            f"{numbered}\n\n"
+            f"Estimated duration: {checklist.get('estimated_duration')}\n"
+            f"Special prep: {checklist.get('special_prep')}\n"
+            f"Requires senior review: {'Yes' if checklist.get('requires_senior_review') else 'No'}\n\n"
+            f"Safety disclaimer: {checklist.get('safety_disclaimer')}"
+        )
         
     elif tool_name == "analyse_requirements":
         # Use AI Service to extract surgical requirements; CDSS-aligned output
@@ -179,14 +200,25 @@ def handle_tool_call(tool_name, tool_input, session_id):
             "requires_senior_review": len(extracted_risks) > 2,
             "safety_disclaimer": "AI is for support only. Clinical decisions require qualified judgment.",
         }
-        return json.dumps(requirements)
+        instruments = ", ".join(requirements.get("instruments") or [])
+        personnel = ", ".join(requirements.get("personnel") or [])
+        risks = ", ".join(requirements.get("risk_factors") or [])
+        return (
+            f"Surgery requirements for {patient_id}:\n"
+            f"- Instruments: {instruments}\n"
+            f"- Personnel: {personnel}\n"
+            f"- Extracted risk factors: {risks if risks else 'none extracted'}\n"
+            f"- Requires senior review: {'Yes' if requirements.get('requires_senior_review') else 'No'}\n\n"
+            f"Safety disclaimer: {requirements.get('safety_disclaimer')}"
+        )
 
     elif tool_name == "get_procedure_guidance":
-        return json.dumps({
-            "message": "Real-time procedure guidance is available via the Surgery Planning screen when connected to the WebSocket.",
-            "surgery_id": tool_input.get("surgery_id"),
-            "safety_disclaimer": "AI is for support only. Clinical decisions require qualified judgment.",
-        })
+        return (
+            "Procedure guidance note:\n"
+            "Real-time procedure guidance is available in the Surgery Planning screen (WebSocket-enabled flow).\n"
+            f"Surgery ID: {tool_input.get('surgery_id') or 'unknown'}\n\n"
+            "Safety disclaimer: AI is for support only. Clinical decisions require qualified judgment."
+        )
 
     return f"Unknown surgery action: {tool_name}"
 

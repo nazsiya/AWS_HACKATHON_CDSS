@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import sys
+from typing import Optional, Tuple
 
 # Add the lambda root to sys.path to import shared utilities
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -42,12 +43,12 @@ audit_logger = AuditLogger(session_manager)
 ROUTING_TOOLS = [
     {
         "name": "route_to_patient_agent",
-        "description": "Route requests related to patient records, history extraction, RAG-based summaries, or patient registration.",
+        "description": "Route requests related to patient records, RAG-based patient history summaries, drug interaction checks, prescription drafts, suggested lab tests, and treatment plan generation.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "patient_id": {"type": "string", "description": "The unique ID of the patient."},
-                "intent": {"type": "string", "description": "The specific intent (e.g., 'get_summary', 'update_vitals')."},
+                "intent": {"type": "string", "description": "The specific intent (e.g., 'get_patient_summary', 'check_drug_interactions', 'generate_prescription', 'suggest_lab_tests', 'get_treatment_plan', or 'update_vitals')."},
                 "context": {"type": "string", "description": "Brief context for the target agent."}
             },
             "required": ["intent"]
@@ -117,6 +118,244 @@ TARGET_AGENT_MAP = {
     "route_to_engagement_agent": "engagement",
 }
 
+
+def _normalize_tool_input(inp):
+    if inp is None:
+        return {}
+    if isinstance(inp, dict):
+        return inp
+    if isinstance(inp, str) and inp.strip():
+        try:
+            return json.loads(inp)
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _is_valid_patient_id(pid: str | None) -> bool:
+    """CDSS patient IDs look like PT-1001 (optionally PT-1001-2)."""
+    if not pid:
+        return False
+    s = str(pid).strip().upper()
+    # PT-<digits> or PT-<digits>-<digits>
+    return bool(__import__("re").match(r"^PT-\d+(?:-\d+)?$", s))
+
+
+def _extract_patient_lambda_text(invoke_payload_raw: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Parse Lambda JSON response from Patient handler. Returns (assistant_text, error_hint).
+    """
+    try:
+        out = json.loads(invoke_payload_raw)
+    except json.JSONDecodeError:
+        return None, "invalid JSON from Patient Lambda"
+
+    if isinstance(out, dict) and out.get("errorMessage"):
+        return None, str(out.get("errorMessage", "Lambda error"))[:500]
+
+    if not isinstance(out, dict) or "body" not in out:
+        return None, "unexpected Patient Lambda shape (no body)"
+
+    body = out["body"]
+    if isinstance(body, str):
+        try:
+            body = json.loads(body)
+        except json.JSONDecodeError:
+            return None, "Patient body is not JSON"
+
+    if not isinstance(body, dict):
+        return None, None
+
+    if body.get("error") or body.get("message"):
+        msg = body.get("message") or body.get("error") or "Patient error"
+        return None, str(msg)[:500]
+
+    # Direct invocation shape: { response: { content, ... } }
+    inner = body.get("response")
+    if isinstance(inner, dict) and inner.get("content"):
+        text = str(inner["content"]).strip()
+        return (text if text else None), None
+
+    # Action internal request shape: { status: "processed", result: "<text>" }
+    if isinstance(body.get("result"), str) and body.get("result").strip():
+        return str(body["result"]).strip(), None
+
+    return None, None
+
+
+def _invoke_patient_agent_sync(message: str, doctor_id: str) -> Optional[str]:
+    """
+    Optionally call the Patient Lambda in the same request so the UI gets a real reply,
+    not only 'Routing request…'. Requires PATIENT_AGENT_FUNCTION_NAME on the Supervisor
+    and lambda:InvokeFunction permission (see infra CDK).
+
+    Note: Supervisor timeout must allow two Bedrock-style calls (supervisor + nested patient);
+    if too low, this returns None and only the routing line appears in the UI.
+    """
+    fn = (os.environ.get("PATIENT_AGENT_FUNCTION_NAME") or "").strip()
+    if not fn:
+        return None
+    try:
+        import boto3
+        from botocore.config import Config
+
+        lam = boto3.client(
+            "lambda",
+            region_name=os.environ.get("AWS_REGION", "ap-south-1"),
+            config=Config(read_timeout=120, connect_timeout=10),
+        )
+        apigw_event = {
+            "body": json.dumps({"message": message, "doctor_id": doctor_id}),
+            "httpMethod": "POST",
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {"requestId": "supervisor-sync-invoke"},
+        }
+        out_raw = lam.invoke(
+            FunctionName=fn,
+            InvocationType="RequestResponse",
+            Payload=json.dumps(apigw_event).encode("utf-8"),
+        )
+        if out_raw.get("FunctionError"):
+            raw = out_raw["Payload"].read().decode("utf-8")
+            logger.warning("Patient Lambda FunctionError: %s", raw[:2000])
+            return None
+        raw = out_raw["Payload"].read().decode("utf-8")
+        text, err = _extract_patient_lambda_text(raw)
+        if text:
+            return text
+        if err:
+            logger.warning("Patient sync returned no assistant text: %s", err)
+        return None
+    except Exception as e:
+        logger.warning("Sync Patient Lambda invoke failed (%s): %s", fn, e)
+        return None
+
+
+def _invoke_patient_agent_sync_action(
+    action: str,
+    params: dict,
+    session_id: str,
+    doctor_id: str,
+) -> Optional[str]:
+    """
+    Invoke Patient Lambda with an internal AgentActionRequested payload so we can
+    deterministically execute the tool handler and show the result immediately.
+    """
+    fn = (os.environ.get("PATIENT_AGENT_FUNCTION_NAME") or "").strip()
+    if not fn:
+        return None
+    try:
+        import boto3
+        from botocore.config import Config
+
+        lam = boto3.client(
+            "lambda",
+            region_name=os.environ.get("AWS_REGION", "ap-south-1"),
+            config=Config(read_timeout=90, connect_timeout=10),
+        )
+
+        apigw_event = {
+            "body": json.dumps(
+                {
+                    "event_type": "AgentActionRequested",
+                    "action": action,
+                    "params": params,
+                    "session_id": session_id,
+                    "doctor_id": doctor_id,
+                }
+            ),
+            "httpMethod": "POST",
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {"requestId": "supervisor-sync-patient-action"},
+        }
+
+        out_raw = lam.invoke(
+            FunctionName=fn,
+            InvocationType="RequestResponse",
+            Payload=json.dumps(apigw_event).encode("utf-8"),
+        )
+        if out_raw.get("FunctionError"):
+            raw = out_raw["Payload"].read().decode("utf-8")
+            logger.warning("Patient Lambda FunctionError: %s", raw[:2000])
+            return None
+
+        raw = out_raw["Payload"].read().decode("utf-8")
+        text, err = _extract_patient_lambda_text(raw)
+        if text:
+            return text
+        if err:
+            logger.warning("Patient sync action returned no text: %s", err)
+        return None
+    except Exception as e:
+        logger.warning("Sync Patient Lambda (action) invoke failed (%s): %s", fn, e)
+        return None
+
+
+def _invoke_surgery_planning_agent_sync_action(
+    action: str,
+    params: dict,
+    session_id: str,
+    doctor_id: str,
+) -> Optional[str]:
+    """
+    Invoke SurgeryPlanning Lambda synchronously for routed tool actions.
+    """
+    fn = (os.environ.get("SURGERY_AGENT_FUNCTION_NAME") or "").strip()
+    if not fn:
+        return None
+    try:
+        import boto3
+        from botocore.config import Config
+
+        lam = boto3.client(
+            "lambda",
+            region_name=os.environ.get("AWS_REGION", "ap-south-1"),
+            config=Config(read_timeout=90, connect_timeout=10),
+        )
+
+        # SurgeryPlanningAgent expects internal routing fields at top-level (no `body` wrapper).
+        payload_obj = {
+            "event_type": "AgentActionRequested",
+            "action": action,
+            "params": params or {},
+            "session_id": session_id,
+            "doctor_id": doctor_id,
+        }
+
+        out_raw = lam.invoke(
+            FunctionName=fn,
+            InvocationType="RequestResponse",
+            Payload=json.dumps(payload_obj).encode("utf-8"),
+        )
+        if out_raw.get("FunctionError"):
+            raw = out_raw["Payload"].read().decode("utf-8")
+            logger.warning("SurgeryPlanning Lambda FunctionError: %s", raw[:2000])
+            return None
+
+        raw = out_raw["Payload"].read().decode("utf-8")
+        try:
+            outer = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+
+        # Lambda proxy response: {statusCode, headers, body}
+        if isinstance(outer, dict) and "body" in outer:
+            body = outer.get("body")
+            if isinstance(body, str):
+                try:
+                    body = json.loads(body)
+                except json.JSONDecodeError:
+                    return None
+            if isinstance(body, dict):
+                result = body.get("result")
+                if isinstance(result, str) and result.strip():
+                    return result.strip()
+        return None
+    except Exception as e:
+        logger.warning("Sync SurgeryPlanning Lambda invoke failed (%s): %s", fn, e)
+        return None
+
+
 def handle_tool_call(tool_name, tool_input, session_id):
     """Execute routing logic by publishing events to the bus."""
     logger.info(f"Executing tool: {tool_name} with input: {tool_input}")
@@ -176,6 +415,7 @@ def lambda_handler(event, context):
     session_id = body.get("session_id")
     user_message = body.get("message")
     patient_id = body.get("patient_id")
+    user_message_lower = (user_message or "").lower()
     
     if not user_message:
         return error_response("Message is required", 400)
@@ -206,8 +446,47 @@ def lambda_handler(event, context):
         # If there are tool calls, execute them (routing)
         tool_results = []
         for tool in tool_calls:
-            result = handle_tool_call(tool["name"], tool["input"], session_id)
-            tool_results.append(result)
+            tool_input = _normalize_tool_input(tool.get("input"))
+            result = handle_tool_call(tool["name"], tool_input, session_id)
+            if tool.get("name") == "route_to_patient_agent":
+                # Never trust Bedrock-provided patient_id; always use UI-selected patient_id when present.
+                if isinstance(tool_input, dict) and patient_id and (
+                    not _is_valid_patient_id(tool_input.get("patient_id"))
+                ):
+                    tool_input["patient_id"] = patient_id
+                intent = (tool_input.get("intent") or "").lower()
+                # Always execute the routed Patient action synchronously so the UI gets
+                # real, conversational content (not only "Routing request…").
+                sync_text = _invoke_patient_agent_sync_action(
+                    action=intent,
+                    params=tool_input,
+                    session_id=session_id,
+                    doctor_id=doctor_id,
+                )
+                if sync_text:
+                    result = sync_text
+            elif tool.get("name") == "route_to_surgery_planning_agent":
+                if isinstance(tool_input, dict) and patient_id and (
+                    not _is_valid_patient_id(tool_input.get("patient_id"))
+                ):
+                    tool_input["patient_id"] = patient_id
+                intent = (tool_input.get("intent") or "").lower()
+                sync_text = _invoke_surgery_planning_agent_sync_action(
+                    action=intent,
+                    params=tool_input,
+                    session_id=session_id,
+                    doctor_id=doctor_id,
+                )
+                if sync_text:
+                    result = sync_text
+            else:
+                # For agents we are not executing synchronously (Resource/Scheduling/Engagement),
+                # suppress routing-only text from the HTTP response to keep the chat conversational.
+                result = ""
+
+            if isinstance(result, str) and result.strip():
+                tool_results.append(result)
+            # else: skip empty results
         
         # Combine direct response and tool results
         final_text = agent_content

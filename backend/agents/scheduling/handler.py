@@ -10,6 +10,8 @@ import sys
 
 # Add the lambda root to sys.path to import shared utilities
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append('/opt')
+sys.path.append('/opt/python')
 
 from shared import (
     BedrockClient,

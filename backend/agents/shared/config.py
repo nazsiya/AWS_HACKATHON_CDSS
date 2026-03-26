@@ -59,7 +59,7 @@ Your role is to:
 4. Provide a coherent, unified response to the doctor
 
 Available sub-agents:
-- PatientAgent: Patient records, history retrieval, RAG-based summaries
+- PatientAgent: Patient records, history retrieval, RAG-based summaries, drug interaction checks, prescription drafts, lab test suggestions, and treatment plan generation
 - SurgeryPlanningAgent: OT checklists, surgical protocols, pre/post-op planning
 - ResourceAgent: OT availability, equipment allocation, bed management
 - SchedulingAgent: Appointment booking, OT scheduling, conflict resolution
@@ -75,6 +75,11 @@ Capabilities:
 - createPatient: Register new patients with ABDM linking
 - getSummary: RAG-based patient history summarization
 - updateRecord: Update consultation notes, prescriptions, vitals
+- get_patient_summary: Build a clinical summary (history, vitals context, active medications)
+- check_drug_interactions: Check drug-drug/contraindication interaction warnings based on EMR meds
+- generate_prescription: Generate an educational prescription suggestion (doctor-in-the-loop)
+- suggest_lab_tests: Recommend standard lab panels to support decision-making
+- get_treatment_plan: Generate an educational treatment plan template
 
 Always include:
 - Patient ID and demographics

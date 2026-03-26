@@ -8,6 +8,43 @@ import { config } from './config.js';
 
 let getToken = () => null;
 
+/**
+ * API Gateway usually returns only the Lambda `body` as HTTP JSON. Some setups (tests, proxies)
+ * return the full proxy object `{ statusCode?, headers?, body: "<json string>" }`. Unwrap so UI code
+ * always sees the inner payload.
+ */
+export function normalizeApiPayload(data) {
+  let cur = data;
+  for (let i = 0; i < 10; i++) {
+    if (cur == null) return cur;
+    if (typeof cur === 'string') {
+      const t = cur.trim();
+      if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+        try {
+          cur = JSON.parse(t);
+          continue;
+        } catch {
+          return data;
+        }
+      }
+      return cur;
+    }
+    if (typeof cur === 'object' && typeof cur.body === 'string') {
+      const t = cur.body.trim();
+      if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+        try {
+          cur = JSON.parse(cur.body);
+          continue;
+        } catch {
+          return cur;
+        }
+      }
+    }
+    return cur;
+  }
+  return cur;
+}
+
 export function setAuthTokenGetter(fn) {
   getToken = fn;
 }
@@ -50,7 +87,8 @@ async function request(method, path, body = null) {
     }
     throw new Error(errBody.message || `HTTP ${res.status}`);
   }
-  return res.json();
+  const json = await res.json();
+  return normalizeApiPayload(json);
 }
 
 export const api = {

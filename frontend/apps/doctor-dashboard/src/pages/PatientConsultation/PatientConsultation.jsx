@@ -143,7 +143,9 @@ export default function PatientConsultation() {
                         setNotesSummary(summary);
                     }
                 })
-                .catch(() => {})
+                .catch((err) => {
+                    setNotesSummaryError(err?.message || 'Failed to summarize notes');
+                })
                 .finally(() => setNotesSummaryLoading(false));
         }, 2500);
         return () => {
@@ -262,10 +264,37 @@ export default function PatientConsultation() {
             context: { patient_snapshot: patientSnapshot },
         })
             .then((data) => {
-                const inner = data?.data;
-                const reply = (inner && inner.reply) ?? data.reply ?? data.message ?? data.summary ?? (typeof data === 'string' ? data : 'Unable to generate response.');
-                const disclaimer = inner?.safety_disclaimer ?? data.safety_disclaimer;
-                setMessages(prev => [...prev, { role: 'assistant', text: reply, time: formatTime(new Date()), ...(disclaimer ? { safety_disclaimer: disclaimer } : {}) }]);
+                // /agent returns Lambda response payload like:
+                // { session_id, response: { agent, content, type, metadata }, ... }
+                // Some screens incorrectly looked for data.data.reply; normalize here.
+                const root = (data && typeof data === 'object' && data.response) ? data : (data?.data ? data.data : data);
+                const raw =
+                    root?.response?.content ??
+                    root?.content ??
+                    root?.reply ??
+                    root?.message ??
+                    root?.summary ??
+                    (typeof data === 'string' ? data : '');
+
+                const reply = typeof raw === 'string'
+                    ? raw.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim()
+                    : 'Unable to generate response.';
+
+                const disclaimer =
+                    root?.safety_disclaimer ??
+                    root?.response?.safety_disclaimer ??
+                    root?.response?.metadata?.safety_disclaimer ??
+                    data?.safety_disclaimer;
+
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        role: 'assistant',
+                        text: reply || 'Unable to generate response.',
+                        time: formatTime(new Date()),
+                        ...(disclaimer ? { safety_disclaimer: disclaimer } : {}),
+                    },
+                ]);
             })
             .catch((err) => {
                 const errMsg = err?.message || 'Failed to get AI response';

@@ -4,6 +4,99 @@ import { postAgent } from '../../api/client';
 import { useActivity } from '../../context/ActivityContext';
 import './AIChat.css';
 
+/**
+ * Normalize supervisor/agent API payloads from Lambda (nested or flat) and strip model "thinking" tags for display.
+ */
+function unwrapApiResponse(res) {
+    if (res == null) return res;
+    if (typeof res === 'string') {
+        try {
+            return unwrapApiResponse(JSON.parse(res));
+        } catch {
+            return res;
+        }
+    }
+    if (typeof res !== 'object') return res;
+    // Lambda proxy: { statusCode, body: "<json string>" }
+    if (typeof res.body === 'string' && res.body.trim().startsWith('{')) {
+        try {
+            return unwrapApiResponse(JSON.parse(res.body));
+        } catch {
+            /* ignore */
+        }
+    }
+    // Some gateways wrap once more
+    if (res.data !== undefined) {
+        const inner = res.data;
+        if (typeof inner === 'string') {
+            try {
+                return unwrapApiResponse(JSON.parse(inner));
+            } catch {
+                /* ignore */
+            }
+        }
+    }
+    return res;
+}
+
+function stripThinkingBlocks(text) {
+    if (typeof text !== 'string') return '';
+    let s = text.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+    // Truncated / malformed closing tag (model cut off mid-tag)
+    if (/<thinking>/i.test(s) && !/<\/thinking>/i.test(s)) {
+        const actionIdx = s.search(/\nAction:\s/i);
+        if (actionIdx !== -1) {
+            s = s.slice(actionIdx).trim();
+        } else {
+            s = s.replace(/<thinking>[\s\S]*/i, '').trim();
+        }
+    }
+    return s.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function extractAssistantPayload(res) {
+    const unwrapped = unwrapApiResponse(res);
+    if (unwrapped == null) {
+        return { text: '', disclaimer: undefined };
+    }
+    if (typeof unwrapped === 'string') {
+        return { text: stripThinkingBlocks(unwrapped) || unwrapped.trim(), disclaimer: undefined };
+    }
+    if (typeof unwrapped !== 'object') {
+        return { text: String(unwrapped), disclaimer: undefined };
+    }
+    const root = unwrapped;
+    const agentBlock =
+        root.response ??
+        (root.type === 'agent_response' && root.content != null ? root : null);
+    let raw =
+        (typeof agentBlock?.content === 'string' ? agentBlock.content : null) ??
+        (typeof root.reply === 'string' ? root.reply : null) ??
+        (typeof root.message === 'string' ? root.message : null);
+    if (raw == null && agentBlock && typeof agentBlock === 'object') {
+        raw = agentBlock.text ?? agentBlock.body;
+    }
+    let text = typeof raw === 'string' ? stripThinkingBlocks(raw) : '';
+    if (!text && typeof raw === 'string' && raw.trim()) {
+        text = raw.trim();
+    }
+    // Entire payload accidentally stringified into one field
+    if (typeof text === 'string' && text.trim().startsWith('{') && text.includes('"agent"')) {
+        try {
+            const inner = JSON.parse(text);
+            return extractAssistantPayload(inner);
+        } catch {
+            /* ignore */
+        }
+    }
+    if (!text) {
+        text =
+            'The assistant did not return a visible reply. Try adding a patient name or ID (e.g. PT-1001).';
+    }
+    const disclaimer = root.safety_disclaimer ?? unwrapped.safety_disclaimer ?? agentBlock?.safety_disclaimer;
+    return { text, disclaimer };
+}
+
 const welcomePrompts = [
     { icon: '📊', text: 'Patient Summary', desc: 'Get a quick summary of any patient' },
     { icon: '💊', text: 'Drug Interactions', desc: 'Check medication compatibility' },
@@ -29,11 +122,7 @@ export default function AIChat() {
         if (!isMockMode()) {
             postAgent({ message: msg, history: messages })
                 .then((res) => {
-                    // Supervisor returns { data: { reply, safety_disclaimer }, safety_disclaimer, ... }
-                    const inner = res?.data;
-                    const reply = (inner && inner.reply) ?? res?.reply ?? res?.message ?? res?.response ?? res?.body;
-                    const text = typeof reply === 'string' ? reply : (reply?.text ?? JSON.stringify(reply ?? {}));
-                    const disclaimer = inner?.safety_disclaimer ?? res?.safety_disclaimer;
+                    const { text, disclaimer } = extractAssistantPayload(res);
                     setMessages(prev => [...prev, {
                         role: 'assistant',
                         text,
@@ -75,7 +164,16 @@ export default function AIChat() {
                 <div className="ai-chat-page__avatar">🤖</div>
                 <div className="ai-chat-page__info">
                     <div className="ai-chat-page__title">CDSS AI Assistant</div>
-                    <div className="ai-chat-page__desc">Powered by Amazon Bedrock · Claude 3 Haiku · RAG-enhanced</div>
+                    <div className="ai-chat-page__desc">
+                        Powered by Amazon Bedrock · Claude 3 Haiku · RAG-enhanced
+                        {typeof __CDSS_BUILD_STAMP__ !== 'undefined' && (
+                            <span className="ai-chat-page__build" title="If this date is old after deploy, invalidate CloudFront and hard-refresh">
+                                {' · '}
+                                UI build {__CDSS_BUILD_STAMP__.slice(0, 19)}
+                                Z
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <span className="ai-chat-page__model">Claude 3 Haiku</span>
             </div>

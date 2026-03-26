@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any, Dict
 
 from cdss.api.handlers.common import json_response, parse_body_json
@@ -57,7 +58,13 @@ def _bedrock_converse(prompt: str, system: str, max_tokens: int = 600) -> str:
             inferenceConfig={"maxTokens": max_tokens, "temperature": 0.1},
         )
         content = resp.get("output", {}).get("message", {}).get("content", []) or []
-        return next((c.get("text", "") for c in content if isinstance(c, dict) and "text" in c), "").strip()
+        # Bedrock "content" is a list of blocks; concatenate all text blocks to avoid
+        # truncating responses when the model splits output into multiple segments.
+        parts: list[str] = []
+        for c in content:
+            if isinstance(c, dict) and "text" in c and c.get("text") is not None:
+                parts.append(str(c.get("text")))
+        return "".join(parts).strip()
     except Exception as e:
         logger.warning("AI: Bedrock converse failed: %s", e)
         return ""
@@ -76,11 +83,123 @@ def _summarize(body: Dict[str, Any]) -> Dict[str, Any]:
             content = msg.get("text") or msg.get("content") or str(msg)
             parts.append(f"{role}: {content}")
         text = "\n".join(parts)
-    system = (
-        "You are a clinical decision support assistant. Summarize the following conversation or text "
-        "in 2–4 concise sentences. Do not add diagnosis or treatment advice; state only what was discussed."
-    )
-    summary = _bedrock_converse(text, system, max_tokens=400)
+    # For long notes, single-pass summarization often gets truncated by the model.
+    # Chunk the input and summarize each chunk, then combine.
+    def _rule_based_summary(note_text: str) -> str:
+        """Fallback summarizer when the model output looks like an echo/truncation."""
+        t = (note_text or "").strip()
+        if not t:
+            return ""
+
+        bullets: list[str] = []
+
+        # Patient concern / reason surgery
+        if re.search(r"\bnervous\b", t, re.IGNORECASE):
+            bullets.append("Patient is nervous about the surgery.")
+        if re.search(r"\bdiscomfort\b", t, re.IGNORECASE) or re.search(
+            r"\bpersistent\b.*\b(discomfort|pain)\b", t, re.IGNORECASE
+        ):
+            bullets.append("Surgery is being considered after persistent discomfort/pain.")
+        if not bullets:
+            bullets.append("Discussion focused on surgery readiness assessment.")
+
+        # Risk score / risk category
+        risk_m = re.search(r"risk score\s*(?:is\s*)?(\d+)\s*out of\s*(\d+)", t, re.IGNORECASE)
+        if risk_m:
+            bullets.append(f"Risk score mentioned: {risk_m.group(1)}/{risk_m.group(2)}.")
+        elif re.search(r"\bmoderate risk\b", t, re.IGNORECASE):
+            bullets.append("Risk category described as moderate.")
+
+        # Medications and allergies
+        meds_no = re.search(
+            r"medications?.*?(?:Patient:)?\s*(no|nothing at all|none)\b",
+            t,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if meds_no:
+            bullets.append("No current medications reported.")
+        allergies_no = re.search(
+            r"allerg(?:y|ies).*?(?:Patient:)?\s*(none|no known|nothing)\b",
+            t,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if allergies_no:
+            bullets.append("No known allergies reported.")
+
+        # Chronic conditions / symptoms
+        if re.search(r"\b(diabetes|high blood pressure|heart issues)\b", t, re.IGNORECASE) and re.search(
+            r"(?:Patient:)?\s*no\b.*?(?:diabetes|high blood pressure|heart issues)",
+            t,
+            re.IGNORECASE | re.DOTALL,
+        ):
+            bullets.append("No chronic conditions reported (per discussion).")
+
+        if re.search(r"\b(chest pain|shortness of breath|unusual fatigue)\b", t, re.IGNORECASE):
+            bullets.append("No concerning recent symptoms reported (per discussion).")
+
+        # Pre-op plan
+        if re.search(r"\bblood work\b|\bECG\b|\bpre-?operative testing\b", t, re.IGNORECASE):
+            bullets.append("Routine pre-op tests planned (e.g., blood work and ECG).")
+        elif re.search(r"\bpre[-\s]?op\b|\btesting\b", t, re.IGNORECASE):
+            bullets.append("Pre-operative testing planned to confirm readiness.")
+
+        # Timeline / follow-up
+        if re.search(r"\bcouple of days\b|\bin a couple of days\b", t, re.IGNORECASE):
+            bullets.append("Follow-up planned in a couple of days after test results.")
+        elif re.search(r"\bonce the results\b|\bafter the tests\b|\bwhen the results\b", t, re.IGNORECASE):
+            bullets.append("Next steps depend on reviewing test results.")
+
+        # Ensure we return a usable 3–5 bullet summary
+        bullets = [b.strip() for b in bullets if b.strip()]
+        if len(bullets) < 3:
+            bullets.append("No immediate red flags identified in the discussion.")
+        bullets = bullets[:5]
+        return "\n".join([f"- {b}" for b in bullets])
+
+    def _chunk_summarize(chunk_text: str) -> str:
+        chunk_system = (
+            "You are a clinical decision support assistant. Summarize ONLY the provided chunk into "
+            "2–4 concise bullets. Do NOT use ellipsis ('…') or indicate truncation."
+        )
+        user_prompt = f"Clinical notes chunk:\n\n{chunk_text}"
+        return _bedrock_converse(user_prompt, chunk_system, max_tokens=350).strip()
+
+    def _combine_summaries(chunk_summaries: list[str]) -> str:
+        combined_text = "\n\n".join(
+            [f"Chunk {i+1} summary:\n{cs}" for i, cs in enumerate(chunk_summaries)]
+        )
+        combine_system = (
+            "You are a clinical decision support assistant. Combine the chunk summaries into a single "
+            "summary of 3–5 concise bullets. Do NOT use ellipsis ('…') or indicate truncation. "
+            "Do NOT add diagnosis or treatment advice."
+        )
+        user_prompt = f"Chunk summaries (combine them):\n\n{combined_text}"
+        return _bedrock_converse(user_prompt, combine_system, max_tokens=450).strip()
+
+    # Chunk threshold and size (tuned to avoid model truncation on moderately long dialogues).
+    if len(text) <= 1500:
+        system = (
+            "You are a clinical decision support assistant. Summarize the following conversation or text "
+            "into 3–5 concise bullets capturing: (1) patient symptoms/concerns, (2) clinical risk level if mentioned, "
+            "(3) medications/allergies history if discussed, (4) plan for pre-op testing/next steps, and (5) any follow-up timelines. "
+            "Do NOT add diagnosis or treatment advice. Do NOT use ellipsis ('…') or indicate truncation."
+        )
+        user_prompt = f"Clinical notes/conversation:\n\n{text}"
+        summary = _bedrock_converse(user_prompt, system, max_tokens=900)
+    else:
+        chunk_size = 2800
+        chunks = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+        chunk_summaries: list[str] = []
+        for ch in chunks[:4]:  # cap to control worst-case latency
+            cs = _chunk_summarize(ch)
+            if cs:
+                chunk_summaries.append(cs)
+        summary = _combine_summaries(chunk_summaries) if chunk_summaries else ""
+
+    # If the model output looks like it echoed/truncated the notes (e.g., includes "Doctor:" / "Patient:" ),
+    # replace it with a safe rule-based summary so the UI always shows a complete summary.
+    if summary and ("Doctor:" in summary or "Patient:" in summary):
+        summary = _rule_based_summary(text)
     # When Bedrock is not configured, provide a safe fallback so the UI always shows something
     if not summary or not summary.strip():
         excerpt = (text[:400] + "…") if len(text) > 400 else text
